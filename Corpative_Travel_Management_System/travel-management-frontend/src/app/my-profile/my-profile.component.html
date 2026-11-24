@@ -1,0 +1,386 @@
+<div class="row g-4 fade-in" *ngIf="currentUser">
+  <!-- Left Column: User Profile Overview Card -->
+  <div class="col-lg-4">
+    <div class="rs-card p-4 text-center">
+      <!-- Profile Avatar -->
+      <div class="mx-auto mb-3 d-flex align-items-center justify-content-center text-white fw-bold rounded-circle shadow-sm"
+           style="width: 84px; height: 84px; font-size: 2.2rem; background: linear-gradient(135deg, #00205C 0%, #0056b3 100%);">
+        {{ currentUser.fullName.charAt(0).toUpperCase() }}
+      </div>
+
+      <h5 class="fw-bold text-dark mb-1">{{ currentUser.fullName }}</h5>
+      <p class="text-muted small mb-3">{{ currentUser.email }}</p>
+
+      <div class="d-flex justify-content-center gap-2 mb-4">
+        <span class="badge px-3 py-1.5" [ngClass]="getRoleBadgeClass(currentUser.role)">
+          <i class="bi bi-shield-check me-1"></i> {{ currentUser.role }}
+        </span>
+        <span class="badge bg-light text-dark border px-3 py-1.5">
+          <i class="bi bi-building me-1"></i> {{ currentUser.departmentName || 'General' }}
+        </span>
+      </div>
+
+      <!-- Quick Summary List -->
+      <div class="text-start bg-light rounded-3 p-3 border small">
+        <div class="d-flex justify-content-between py-1.5 border-bottom">
+          <span class="text-muted">Corporate User ID:</span>
+          <strong class="text-dark">#{{ currentUser.id }}</strong>
+        </div>
+        <div class="d-flex justify-content-between py-1.5 border-bottom">
+          <span class="text-muted">Assigned Manager:</span>
+          <span class="fw-semibold text-dark text-truncate ms-2" style="max-width: 150px;" [title]="currentUser.managerName || 'None'">
+            {{ currentUser.managerName || 'None' }}
+          </span>
+        </div>
+        <div class="d-flex justify-content-between py-1.5 border-bottom">
+          <span class="text-muted">Assigned Finance:</span>
+          <span class="fw-semibold text-success text-truncate ms-2" style="max-width: 150px;" [title]="currentUser.financeName || 'Carol Davis'">
+            {{ currentUser.financeName || (currentUser.role === Role.FINANCE ? 'Self (Finance Officer)' : 'Carol Davis') }}
+          </span>
+        </div>
+        <div class="d-flex justify-content-between py-1.5">
+          <span class="text-muted">Account Status:</span>
+          <span class="badge bg-success-subtle text-success border border-success-subtle">
+            <i class="bi bi-check-circle-fill me-1"></i> Active Session
+          </span>
+        </div>
+      </div>
+
+      <!-- Bank Account Overview Box -->
+      <div class="text-start bg-light rounded-3 p-3 border small mt-3">
+        <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+          <strong class="text-dark d-flex align-items-center">
+            <i class="bi bi-bank2 text-primary me-1.5"></i> Disbursement Bank
+          </strong>
+          <span *ngIf="currentUser.accountNumber" class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;">Configured</span>
+          <span *ngIf="!currentUser.accountNumber" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.7rem;">Pending</span>
+        </div>
+        <div class="d-flex justify-content-between py-1 border-bottom">
+          <span class="text-muted">Bank:</span>
+          <span class="fw-semibold text-dark text-truncate ms-2" style="max-width: 160px;" [title]="currentUser.bankName || 'Not Set'">
+            {{ currentUser.bankName || 'Not Configured' }}
+          </span>
+        </div>
+        <div class="d-flex justify-content-between py-1 border-bottom">
+          <span class="text-muted">Branch:</span>
+          <span class="text-dark text-truncate ms-2" style="max-width: 160px;" [title]="currentUser.bankBranch || 'Not Set'">
+            {{ currentUser.bankBranch || '—' }}
+          </span>
+        </div>
+        <div class="d-flex justify-content-between py-1 border-bottom">
+          <span class="text-muted">IFSC Code:</span>
+          <span class="text-dark font-monospace fw-semibold">{{ currentUser.ifscCode || '—' }}</span>
+        </div>
+        <div class="d-flex justify-content-between py-1">
+          <span class="text-muted">A/C Number:</span>
+          <span class="text-dark font-monospace fw-semibold">{{ currentUser.accountNumber ? ('•••• ' + currentUser.accountNumber.slice(-4)) : '—' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Edit Profile Details Form -->
+  <div class="col-lg-8">
+    <div class="rs-card p-4">
+      <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom flex-wrap gap-2">
+        <div>
+          <h5 class="fw-bold mb-0 text-dark">
+            <i class="bi bi-person-lines-fill text-primary me-2"></i> Profile Details
+          </h5>
+          <small class="text-muted">Update your corporate personal details, security credentials, and workflow preferences</small>
+        </div>
+        <div>
+          <button *ngIf="!isEditing" 
+                  type="button" 
+                  class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5 shadow-sm px-3 py-1.5"
+                  (click)="toggleEdit()"
+                  title="Click to edit profile and bank details">
+            <i class="bi bi-pencil-square"></i>
+            <span class="fw-semibold">Edit Details</span>
+          </button>
+          <div *ngIf="isEditing" class="d-inline-flex align-items-center gap-2">
+            <button type="button" 
+                    class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 py-1 px-2.5"
+                    (click)="cancelEdit()"
+                    title="Cancel editing">
+              <i class="bi bi-x-circle me-1"></i>
+              <span>Cancel</span>
+            </button>
+            <button type="button" 
+                    class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1 py-1 px-3 fw-semibold shadow-sm"
+                    (click)="saveProfile()"
+                    title="Save Changes">
+              <i class="bi bi-check-lg me-1"></i>
+              <span>Save Changes</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div *ngIf="formSuccess" class="alert alert-success alert-dismissible fade show py-2.5 px-3 small mb-3 border-success" role="alert">
+        <div class="d-flex align-items-center">
+          <i class="bi bi-check-circle-fill text-success fs-5 me-2"></i>
+          <div>{{ formSuccess }}</div>
+        </div>
+      </div>
+
+      <div *ngIf="formError" class="alert alert-danger alert-dismissible fade show py-2.5 px-3 small mb-3 border-danger" role="alert">
+        <div class="d-flex align-items-center">
+          <i class="bi bi-exclamation-octagon-fill text-danger fs-5 me-2"></i>
+          <div>{{ formError }}</div>
+        </div>
+      </div>
+
+      <form (ngSubmit)="saveProfile()">
+        <div class="row g-3">
+          <!-- Full Name -->
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-dark">
+              Full Name <span class="text-danger">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="bi bi-person text-muted"></i></span>
+              <input type="text" 
+                     class="form-control" 
+                     [readonly]="!isEditing"
+                     [class.bg-light]="!isEditing"
+                     [(ngModel)]="editFullName" 
+                     name="fullName" 
+                     placeholder="e.g. Sarah Connor" 
+                     required>
+            </div>
+          </div>
+
+          <!-- Email Address -->
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-dark">
+              Corporate Email Address <span class="text-danger">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="bi bi-envelope text-muted"></i></span>
+              <input type="email" 
+                     class="form-control" 
+                     [readonly]="!isEditing"
+                     [class.bg-light]="!isEditing"
+                     [(ngModel)]="editEmail" 
+                     name="email" 
+                     placeholder="e.g. sarah.connor@company.com" 
+                     required>
+            </div>
+            <div class="form-text small" style="font-size: 0.75rem;">
+              Used as your primary corporate sign-in identity.
+            </div>
+          </div>
+
+          <!-- Department -->
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-dark">
+              Department <span class="text-danger">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="bi bi-building text-muted"></i></span>
+              <select class="form-select" 
+                      [disabled]="!isEditing"
+                      [class.bg-light]="!isEditing"
+                      [(ngModel)]="editDepartment" 
+                      name="department" 
+                      required>
+                <option *ngFor="let dept of commonDepartments" [value]="dept">{{ dept }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Account Password -->
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-dark">
+              Account Password <span class="text-danger">*</span>
+            </label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="bi bi-key text-muted"></i></span>
+              <input type="password" 
+                     class="form-control" 
+                     [readonly]="!isEditing"
+                     [class.bg-light]="!isEditing"
+                     [(ngModel)]="editPassword" 
+                     name="password" 
+                     placeholder="Min 4 characters" 
+                     required>
+            </div>
+            <div class="form-text small" style="font-size: 0.75rem;">
+              Password used for logging in to the Corporate Travel Desk.
+            </div>
+          </div>
+
+          <!-- Bank Details for Reimbursement & Payouts -->
+          <div class="col-12 mt-4 pt-3 border-top">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <div>
+                <h6 class="fw-bold mb-0 text-dark">
+                  <i class="bi bi-bank2 text-primary me-2"></i> Bank Details & Reimbursement Payout Account
+                </h6>
+                <small class="text-muted">Account details used by Finance for direct travel expense claims reimbursement disbursement</small>
+              </div>
+              <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1">
+                <i class="bi bi-shield-lock-fill me-1"></i> Direct Payout
+              </span>
+            </div>
+
+            <div class="row g-3">
+              <!-- 1. Name of the Bank -->
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold text-dark">
+                  Name of the Bank
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-bank text-muted"></i></span>
+                  <input type="text" 
+                         class="form-control" 
+                         [readonly]="!isEditing"
+                         [class.bg-light]="!isEditing"
+                         [(ngModel)]="editBankName" 
+                         name="bankName" 
+                         placeholder="e.g. HDFC Bank, State Bank of India, ICICI Bank">
+                </div>
+                <div class="form-text small" style="font-size: 0.75rem;">
+                  Official financial institution name.
+                </div>
+              </div>
+
+              <!-- 2. Name of the Bank Branch -->
+              <div class="col-md-6">
+                <label class="form-label small fw-semibold text-dark">
+                  Name of the Bank Branch
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-geo-alt text-muted"></i></span>
+                  <input type="text" 
+                         class="form-control" 
+                         [readonly]="!isEditing"
+                         [class.bg-light]="!isEditing"
+                         [(ngModel)]="editBankBranch" 
+                         name="bankBranch" 
+                         placeholder="e.g. Vadodara Main Branch, Whitefield Branch">
+                </div>
+                <div class="form-text small" style="font-size: 0.75rem;">
+                  Branch city, area, or campus location.
+                </div>
+              </div>
+
+              <!-- 3. IFSC Code -->
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold text-dark">
+                  IFSC code
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-upc text-muted"></i></span>
+                  <input type="text" 
+                         class="form-control text-uppercase" 
+                         [readonly]="!isEditing"
+                         [class.bg-light]="!isEditing"
+                         [(ngModel)]="editIfscCode" 
+                         name="ifscCode" 
+                         maxlength="11"
+                         placeholder="e.g. HDFC0000123, SBIN0001234">
+                </div>
+                <div class="form-text small" style="font-size: 0.75rem;">
+                  11-character Indian Financial System Code.
+                </div>
+              </div>
+
+              <!-- 4. IFSC Name -->
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold text-dark">
+                  IFSC Name
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-building-check text-muted"></i></span>
+                  <input type="text" 
+                         class="form-control" 
+                         [readonly]="!isEditing"
+                         [class.bg-light]="!isEditing"
+                         [(ngModel)]="editIfscName" 
+                         name="ifscName" 
+                         placeholder="e.g. HDFC Bank Ltd - Vadodara Branch">
+                </div>
+                <div class="form-text small" style="font-size: 0.75rem;">
+                  RTGS / NEFT branch center name as per IFSC.
+                </div>
+              </div>
+
+              <!-- 5. Account Number -->
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold text-dark">
+                  Account Number
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-credit-card text-muted"></i></span>
+                  <input type="text" 
+                         class="form-control" 
+                         [readonly]="!isEditing"
+                         [class.bg-light]="!isEditing"
+                         [(ngModel)]="editAccountNumber" 
+                         name="accountNumber" 
+                         placeholder="e.g. 50100234567890">
+                </div>
+                <div class="form-text small" style="font-size: 0.75rem;">
+                  Savings or Current account number for deposit.
+                </div>
+              </div>
+
+              <!-- 6. Bank Details Document Proof / Cancelled Cheque / Passbook PDF Input -->
+              <div class="col-12">
+                <label class="form-label small fw-semibold text-danger">
+                  <i class="bi bi-file-earmark-pdf-fill me-1"></i> Bank Details Document Proof / Cancelled Cheque / Passbook (PDF)
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="bi bi-file-earmark-arrow-up text-muted"></i></span>
+                  <input type="file" 
+                         class="form-control" 
+                         [disabled]="!isEditing"
+                         accept="application/pdf,image/png,image/jpeg"
+                         title="Upload Bank Passbook, Cancelled Cheque, or Bank Statement Proof (PDF or Image)"
+                         (change)="onBankFileSelected($event)">
+                  <button *ngIf="editBankProofFileName && isEditing" 
+                          type="button" 
+                          class="btn btn-outline-danger" 
+                          (click)="removeBankFile()"
+                          title="Remove uploaded bank proof">
+                    <i class="bi bi-x-circle me-1"></i> Remove
+                  </button>
+                </div>
+                <div *ngIf="editBankProofFileName" class="form-text text-success small mt-1 d-flex align-items-center">
+                  <i class="bi bi-file-earmark-check-fill fs-6 me-1"></i>
+                  <span>Document Attached: <strong>{{ editBankProofFileName }}</strong> <span *ngIf="bankProofFileSize">({{ bankProofFileSize }})</span></span>
+                </div>
+                <div *ngIf="bankProofUploadError" class="form-text text-danger small mt-1">
+                  <i class="bi bi-exclamation-circle me-1"></i>{{ bankProofUploadError }}
+                </div>
+                <div *ngIf="!editBankProofFileName && !bankProofUploadError" class="form-text text-muted small" style="font-size: 0.75rem;">
+                  Upload bank passbook, cancelled cheque, or statement copy (PDF or image, Max 10MB) to verify account ownership.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="isEditing" class="d-flex align-items-center justify-content-end gap-2 mt-4 pt-3 border-top">
+          <button type="button" 
+                  class="btn btn-outline-secondary px-3" 
+                  (click)="cancelEdit()">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Discard Changes
+          </button>
+          <button type="submit" 
+                  class="btn btn-primary px-4 fw-semibold shadow-sm">
+            <i class="bi bi-check-lg me-1"></i>
+            Save Profile Changes
+          </button>
+        </div>
+
+        <div *ngIf="!isEditing" class="d-flex align-items-center justify-content-start mt-4 pt-3 border-top small text-muted">
+          <span><i class="bi bi-shield-check text-success me-1"></i> Profile details and reimbursement bank information are securely verified.</span>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

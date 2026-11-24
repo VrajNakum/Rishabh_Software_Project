@@ -1,0 +1,277 @@
+<div class="rs-card p-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h5 class="fw-bold mb-0"><i class="bi bi-shield-lock me-1"></i> Approvals Queue</h5>
+      <small class="text-muted" *ngIf="currentUser">
+        Showing travel requests in the approval pipeline for <strong>{{ currentUser.fullName }}</strong> ({{ currentUser.role }})
+      </small>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1">
+        <i class="bi bi-person-badge me-1"></i> User: {{ currentUser?.fullName }} ({{ currentUser?.role }})
+      </span>
+      <span class="badge bg-light text-dark border px-2.5 py-1">
+        Showing: {{ filteredRequests.length }} of {{ requests.length }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Scope Filter Pills -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-2 border-bottom">
+    <div class="btn-group btn-group-sm shadow-sm" role="group" aria-label="Approval Queue Scope">
+      <button type="button" 
+              class="btn" 
+              [ngClass]="queueScope === 'ASSIGNED' ? 'btn-primary' : 'btn-outline-secondary'"
+              (click)="queueScope = 'ASSIGNED'">
+        <i class="bi bi-person-check me-1"></i>
+        {{ currentUser?.role === 'EMPLOYEE' ? 'My Requests in Queue' : 'Assigned to Me' }}
+        <span class="badge bg-white text-dark ms-1" *ngIf="queueScope === 'ASSIGNED'">{{ filteredRequests.length }}</span>
+      </button>
+      <button type="button" 
+              class="btn" 
+              [ngClass]="queueScope === 'ALL' ? 'btn-primary' : 'btn-outline-secondary'"
+              (click)="queueScope = 'ALL'">
+        <i class="bi bi-collection me-1"></i> All Queue Requests
+        <span class="badge ms-1" [ngClass]="queueScope === 'ALL' ? 'bg-white text-dark' : 'bg-secondary text-white'">{{ requests.length }}</span>
+      </button>
+      <button *ngIf="currentUser?.role !== 'EMPLOYEE'"
+              type="button" 
+              class="btn" 
+              [ngClass]="queueScope === 'MY_REQUESTS' ? 'btn-primary' : 'btn-outline-secondary'"
+              (click)="queueScope = 'MY_REQUESTS'">
+        <i class="bi bi-person-workspace me-1"></i> My Submitted Trips
+      </button>
+    </div>
+
+    <div class="d-flex align-items-center gap-2 text-muted small">
+      <i class="bi bi-info-circle text-primary"></i>
+      <span>Filter: <strong>{{ queueScope === 'ALL' ? 'All Corporate Requests' : (queueScope === 'MY_REQUESTS' ? 'My Submitted Trips' : (currentUser?.role === 'EMPLOYEE' ? 'My Requests in Queue' : 'Assigned to Me')) }}</strong></span>
+    </div>
+  </div>
+
+  <!-- Role Notice Alert explaining assigned routing -->
+  <div class="alert alert-info py-2 px-3 small d-flex align-items-center mb-3 border-info" *ngIf="queueScope === 'ASSIGNED' && (currentUser?.role === 'MANAGER' || currentUser?.role === 'FINANCE')">
+    <i class="bi bi-info-circle-fill fs-5 text-info me-2"></i>
+    <div class="flex-grow-1">
+      <span *ngIf="currentUser?.role === 'MANAGER'">
+        As an <strong>Assigned Manager</strong>, requests submitted by your designated reportees appear here for your review and approval.
+      </span>
+      <span *ngIf="currentUser?.role === 'FINANCE'">
+        As an <strong>Assigned Finance Officer</strong>, requests routed to you for financial audit and disbursement approval appear here.
+      </span>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-primary ms-2 bg-white" (click)="queueScope = 'ALL'">
+      <i class="bi bi-eye me-1"></i> View All Requests
+    </button>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead class="table-light small text-uppercase">
+        <tr>
+          <th>ID</th>
+          <th>Employee</th>
+          <th>Dept</th>
+          <th>Destination</th>
+          <th>Budget</th>
+          <th>Assigned Manager</th>
+          <th>Assigned Finance</th>
+          <th>Status</th>
+          <th>Policy Reason</th>
+          <th>Trip Details</th>
+          <th>Reviewer Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let req of paginatedRequests">
+          <td>#{{ req.id }}</td>
+          <td>
+            <div class="fw-semibold text-dark">{{ req.employeeName }}</div>
+          </td>
+          <td><span class="badge bg-light text-dark border">{{ req.departmentName }}</span></td>
+          <td>{{ req.destination }}</td>
+          <td><strong>${{ req.estimatedBudget | number:'1.2-2' }}</strong></td>
+          <td>
+            <span class="small d-inline-flex align-items-center gap-1">
+              <i class="bi bi-person-up text-primary"></i>
+              <strong [class.text-primary]="currentUser?.id === userContext.getAssignedManagerForRequest(req).id">
+                {{ getAssignedManagerName(req) }}
+              </strong>
+            </span>
+          </td>
+          <td>
+            <span class="small d-inline-flex align-items-center gap-1">
+              <i class="bi bi-cash-coin text-success"></i>
+              <strong [class.text-success]="currentUser?.id === userContext.getAssignedFinanceForRequest(req).id">
+                {{ getAssignedFinanceName(req) }}
+              </strong>
+            </span>
+          </td>
+          <td>
+            <!-- Status Label (Clean Font & Color) -->
+            <span class="status-badge" [ngClass]="'badge-' + req.status.toLowerCase().replace('_', '-')">
+              {{ formatStatusLabel(req.status) }}
+            </span>
+            <div *ngIf="isReimbursementRequested(req.id)" class="mt-1">
+              <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle d-inline-flex align-items-center gap-1 small" style="font-size: 0.72rem;">
+                <i class="bi bi-cash-stack"></i> Reimbursement Claim
+              </span>
+            </div>
+          </td>
+          <td class="small text-danger">{{ req.policyViolationReason || 'None (Compliant)' }}</td>
+          <td>
+            <button type="button"
+                    class="btn btn-sm d-inline-flex align-items-center gap-1 shadow-sm text-nowrap"
+                    [ngClass]="isReimbursementRequested(req.id) && currentUser?.role === 'FINANCE' ? 'btn-success text-white' : 'btn-outline-primary'"
+                    (click)="onViewTripDetails(req)"
+                    [title]="isReimbursementRequested(req.id) ? 'Review Active Reimbursement Claim for Request #' + req.id : 'View Trip Details, Expenses & Claims for Request #' + req.id">
+              <i class="bi" [ngClass]="isReimbursementRequested(req.id) ? 'bi-wallet2' : 'bi-journal-text'"></i>
+              <span>{{ isReimbursementRequested(req.id) && currentUser?.role === 'FINANCE' ? 'Review Claim' : 'Trip Details' }}</span>
+              <span *ngIf="isReimbursementRequested(req.id)" class="badge bg-white text-success border ms-1" style="font-size: 0.7rem;">
+                Active
+              </span>
+              <span *ngIf="!isReimbursementRequested(req.id) && currentUser?.role === 'FINANCE'" class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1" style="font-size: 0.7rem;">
+                <i class="bi bi-receipt me-0.5"></i> Claims
+              </span>
+            </button>
+          </td>
+          <td>
+            <div class="d-flex gap-2" *ngIf="(req.status === 'PENDING_MANAGER' || req.status === 'PENDING_FINANCE') && canApprove(req)">
+              <button class="btn btn-sm btn-success" 
+                      (click)="onApprove(req.id)"
+                      title="Approve this travel request">
+                Approve
+              </button>
+              <button class="btn btn-sm btn-danger" 
+                      (click)="onOpenReject(req)"
+                      title="Reject with explanation comment for employee">
+                Reject
+              </button>
+            </div>
+            <div *ngIf="(req.status === 'PENDING_MANAGER' || req.status === 'PENDING_FINANCE') && !canApprove(req)">
+              <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle py-1 px-2 small">
+                <i class="bi bi-hourglass-split me-1"></i>
+                {{ req.status === 'PENDING_MANAGER' ? 'Awaiting ' + getAssignedManagerName(req) : 'Awaiting ' + getAssignedFinanceName(req) }}
+              </span>
+            </div>
+            <div class="d-flex align-items-center gap-2" *ngIf="req.status !== 'PENDING_MANAGER' && req.status !== 'PENDING_FINANCE'">
+              <span *ngIf="isReimbursementRequested(req.id) && currentUser?.role === 'FINANCE'" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle py-1 px-2 small">
+                <i class="bi bi-clock-history me-1"></i> Awaiting Payout
+              </span>
+              <span *ngIf="!isReimbursementRequested(req.id) || currentUser?.role !== 'FINANCE'" class="text-muted small">
+                {{ req.status === 'APPROVED' ? 'Approved' : (req.status === 'REJECTED' ? 'Rejected' : 'Draft') }}
+              </span>
+              <button *ngIf="canDeleteRequest(req.status)"
+                      class="btn btn-sm btn-outline-danger" 
+                      (click)="onDeleteRequest(req)" 
+                      [title]="getDeleteTitle(req.status)">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+
+      <tr *ngIf="filteredRequests.length === 0">
+          <td colspan="11" class="text-center py-5 text-muted">
+            <i class="bi bi-inbox fs-2 text-secondary d-block mb-2"></i>
+            <h6 class="fw-bold text-dark mb-1">No Travel Requests Found in this View</h6>
+            <p class="small text-muted mb-3" *ngIf="queueScope === 'ASSIGNED'">
+              You have no requests directly assigned to you for action right now.
+            </p>
+            <p class="small text-muted mb-3" *ngIf="queueScope === 'MY_REQUESTS'">
+              You have not submitted any travel requests into the approval queue yet.
+            </p>
+            <div class="d-flex justify-content-center gap-2" *ngIf="queueScope !== 'ALL' && requests.length > 0">
+              <button type="button" class="btn btn-sm btn-primary shadow-sm" (click)="queueScope = 'ALL'">
+                <i class="bi bi-collection me-1"></i> View All {{ requests.length }} Approval Queue Requests
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Approvals Queue Pagination -->
+  <app-pagination 
+    [totalItems]="totalItems" 
+    [pageSize]="pageSize" 
+    [currentPage]="currentPage" 
+    (pageChange)="currentPage = $event" 
+    (pageSizeChange)="pageSize = $event; currentPage = 1">
+  </app-pagination>
+</div>
+
+<!-- Rejection Reason Modal (Spacious & Viewport-Centered) -->
+<div *ngIf="rejectingRequest" class="rejection-modal-overlay" (click)="onCancelRejection()"></div>
+<div *ngIf="rejectingRequest" 
+     class="rejection-modal-wrapper" 
+     role="dialog" 
+     aria-modal="true" 
+     aria-labelledby="rejectModalTitle">
+  <div class="rejection-modal-card">
+    <div class="bg-danger text-white d-flex align-items-center justify-content-between p-3 px-4">
+      <h5 class="fw-bold mb-0 d-flex align-items-center" id="rejectModalTitle">
+        <i class="bi bi-x-circle-fill me-2 fs-5"></i> Reject Travel Request #{{ rejectingRequest.id }}
+      </h5>
+      <button type="button" class="btn-close btn-close-white" (click)="onCancelRejection()" aria-label="Close"></button>
+    </div>
+
+    <div class="p-4">
+      <!-- Trip Context Info Card -->
+      <div class="row g-3 p-3 bg-light rounded-3 border mb-4">
+        <div class="col-md-4 col-sm-6">
+          <span class="text-muted small d-block">Employee & Dept</span>
+          <strong class="text-dark">{{ rejectingRequest.employeeName }}</strong>
+          <div class="small text-muted">{{ rejectingRequest.departmentName }}</div>
+        </div>
+        <div class="col-md-4 col-sm-6">
+          <span class="text-muted small d-block">Destination & Dates</span>
+          <strong class="text-dark">{{ rejectingRequest.destination }}</strong>
+          <div class="small text-muted">{{ rejectingRequest.startDate }} to {{ rejectingRequest.endDate }}</div>
+        </div>
+        <div class="col-md-4 col-sm-12">
+          <span class="text-muted small d-block">Estimated Budget</span>
+          <strong class="text-primary fs-5">${{ rejectingRequest.estimatedBudget | number:'1.2-2' }}</strong>
+          <div class="small text-muted">Class: {{ rejectingRequest.travelClass }}</div>
+        </div>
+      </div>
+
+      <!-- Feedback Reason Input Area -->
+      <div class="mb-2">
+        <label class="form-label fw-bold text-dark d-flex justify-content-between align-items-center mb-2">
+          <span>
+            <i class="bi bi-chat-left-dots-fill text-danger me-1"></i> 
+            Rejection Comment / Reason for Employee <span class="text-danger">*</span>
+          </span>
+          <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">Required</span>
+        </label>
+        <textarea class="form-control" 
+                  rows="4" 
+                  [ngModel]="rejectionComment" 
+                  (ngModelChange)="onCommentChange($event)"
+                  placeholder="Provide a clear, detailed reason for rejecting this travel request (e.g. Budget exceeds Q4 departmental limit, please revise travel dates, or choose economy class)..." 
+                  style="font-size: 0.95rem; border-color: #cbd5e1; border-radius: 8px;"
+                  required>
+        </textarea>
+        <div class="form-text mt-2 text-muted small" *ngIf="currentUser">
+          <i class="bi bi-info-circle me-1"></i>
+          This comment will be clearly communicated to <strong>{{ rejectingRequest.employeeName }}</strong> on their dashboard and permanently recorded in the audit log by <strong>{{ currentUser.role }} ({{ currentUser.fullName }})</strong>.
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end align-items-center gap-3 p-3 px-4 bg-light border-top">
+      <button type="button" class="btn btn-outline-secondary px-4 py-2 fw-semibold" (click)="onCancelRejection()">
+        Cancel
+      </button>
+      <button type="button" 
+              class="btn btn-danger px-4 py-2 fw-bold d-flex align-items-center shadow-sm" 
+              [disabled]="!rejectionComment.trim()"
+              (click)="onConfirmReject()">
+        <i class="bi bi-send-fill me-2"></i>
+        Confirm Rejection & Send Comment
+      </button>
+    </div>
+  </div>
+</div>

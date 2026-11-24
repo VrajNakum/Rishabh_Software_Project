@@ -1,0 +1,318 @@
+<div class="login-wrapper">
+  <div class="container-fluid h-100 p-0">
+    <div class="row g-0 min-vh-100 align-items-center">
+
+      <!-- ============================================== -->
+      <!-- LEFT 50%: BRANDING HERO & TRAVEL FLOW QUOTE    -->
+      <!-- ============================================== -->
+      <div class="col-12 col-lg-6 d-flex align-items-center justify-content-center p-4 p-xl-5 login-left-col">
+        <div class="login-hero-section text-white">
+          <!-- Main Quote Headline -->
+          <h1 class="login-hero-quote mb-3">
+            Every trip, from request to refund, in one place.
+          </h1>
+
+          <!-- Subtitle / Value Proposition -->
+          <p class="login-hero-desc text-white-50 mb-4 pb-2">
+            Raise a request, get it approved by your manager and finance, track the itinerary, and claim expenses with proof.
+          </p>
+
+          <!-- Vertical Stepper Timeline -->
+          <div class="login-stepper mt-2">
+            <!-- Step 1 -->
+            <div class="login-step-item">
+              <div class="step-indicator">
+                <span class="step-ring"></span>
+                <span class="step-connector"></span>
+              </div>
+              <div class="step-label">Request submitted</div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="login-step-item">
+              <div class="step-indicator">
+                <span class="step-ring"></span>
+                <span class="step-connector"></span>
+              </div>
+              <div class="step-label">Manager approves</div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="login-step-item">
+              <div class="step-indicator">
+                <span class="step-ring"></span>
+                <span class="step-connector"></span>
+              </div>
+              <div class="step-label">Finance approves</div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="login-step-item">
+              <div class="step-indicator">
+                <span class="step-ring"></span>
+              </div>
+              <div class="step-label mb-0">Expenses verified and refunded</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- RIGHT 50%: LOGIN / AUTHENTICATION CARD         -->
+      <!-- ============================================== -->
+      <div class="col-12 col-lg-6 d-flex align-items-center justify-content-center p-4 p-xl-5 login-right-col">
+        <div class="login-card-container">
+
+          <!-- Login Card -->
+          <div class="card border-0 shadow-lg login-card">
+          <!-- Card Header / Brand -->
+          <div class="card-header bg-white border-0 text-center pt-4 pb-2">
+            <img src="rishabh-logo.png" alt="Rishabh Software" class="login-brand-logo mb-3" />
+            <div *ngIf="!isForgotPasswordMode">
+              <h3 class="fw-bold login-title mb-1">Corporate Travel Desk</h3>
+              <p class="text-muted small mb-0">Sign in to access travel requests, approvals, and budget analytics</p>
+            </div>
+            <div *ngIf="isForgotPasswordMode">
+              <h3 class="fw-bold login-title mb-1">
+                <i class="bi bi-shield-lock text-primary me-1"></i> Account Recovery
+              </h3>
+              <p class="text-muted small mb-0">Join the Corporate Travel Desk using your registered Email ID</p>
+            </div>
+          </div>
+
+          <div class="card-body px-4 py-3">
+
+            <!-- ============================================== -->
+            <!-- MODE 1: STANDARD PASSWORD LOGIN                -->
+            <!-- ============================================== -->
+            <div *ngIf="!isForgotPasswordMode">
+              <!-- Error Feedback Alert -->
+              <div *ngIf="errorMessage" class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-3 py-2 small shadow-sm" role="alert">
+                <i class="bi bi-exclamation-octagon-fill me-2 fs-5 flex-shrink-0"></i>
+                <div class="flex-grow-1">{{ errorMessage }}</div>
+                <button type="button" class="btn-close" (click)="errorMessage = null" aria-label="Close"></button>
+              </div>
+
+              <!-- Sign In Form -->
+              <form (ngSubmit)="onLogin()" class="needs-validation">
+                <!-- Email / Username Input -->
+                <div class="mb-3">
+                  <label for="loginEmail" class="form-label fw-semibold small text-secondary">
+                    <i class="bi bi-envelope-fill me-1 text-primary"></i> Corporate Email / Username
+                  </label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0 text-muted">
+                      <i class="bi bi-person"></i>
+                    </span>
+                    <input
+                      type="text"
+                      id="loginEmail"
+                      name="email"
+                      class="form-control border-start-0 ps-1"
+                      placeholder="e.g. alice.employee@company.com"
+                      [(ngModel)]="emailOrUsername"
+                      (input)="errorMessage = null"
+                      required
+                      autocomplete="username"
+                    />
+                  </div>
+                </div>
+
+                <!-- Password Input -->
+                <div class="mb-3">
+                  <label for="loginPassword" class="form-label fw-semibold small text-secondary">
+                    <i class="bi bi-key-fill me-1 text-primary"></i> Password
+                  </label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0 text-muted">
+                      <i class="bi bi-lock"></i>
+                    </span>
+                    <input
+                      type="password"
+                      id="loginPassword"
+                      name="password"
+                      class="form-control border-start-0 ps-1"
+                      placeholder="Enter corporate password"
+                      [(ngModel)]="password"
+                      autocomplete="current-password"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <!-- Remember Me & Forgot Password Link -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <div class="form-check small">
+                    <input class="form-check-input" type="checkbox" id="rememberMe" [(ngModel)]="rememberMe" name="rememberMe" />
+                    <label class="form-check-label text-muted" for="rememberMe">Remember my login</label>
+                  </div>
+                  <button type="button" class="btn btn-link p-0 small text-decoration-none fw-semibold forgot-password-link" (click)="openForgotPassword()">
+                    Forgot Password?
+                  </button>
+                </div>
+
+                <!-- Submit Button -->
+                <button
+                  type="submit"
+                  class="btn btn-primary w-100 py-2 fw-semibold shadow-sm login-submit-btn d-flex align-items-center justify-content-center gap-2"
+                  [disabled]="!emailOrUsername.trim()"
+                >
+                  <i class="bi bi-box-arrow-in-right fs-5"></i>
+                  <span>Sign In to Travel Desk</span>
+                </button>
+              </form>
+            </div>
+
+            <!-- ============================================== -->
+            <!-- MODE 2: FORGOT PASSWORD / JOIN VIA EMAIL ID   -->
+            <!-- ============================================== -->
+            <div *ngIf="isForgotPasswordMode" class="forgot-password-panel">
+              <!-- Success Feedback Alert -->
+              <div *ngIf="forgotPasswordSuccessMessage" class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-3 py-2 small shadow-sm" role="alert">
+                <i class="bi bi-check-circle-fill me-2 fs-5 flex-shrink-0"></i>
+                <div class="flex-grow-1">{{ forgotPasswordSuccessMessage }}</div>
+                <button type="button" class="btn-close" (click)="forgotPasswordSuccessMessage = null" aria-label="Close"></button>
+              </div>
+
+              <!-- Error Feedback Alert -->
+              <div *ngIf="forgotPasswordErrorMessage" class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-3 py-2 small shadow-sm" role="alert">
+                <i class="bi bi-exclamation-octagon-fill me-2 fs-5 flex-shrink-0"></i>
+                <div class="flex-grow-1">{{ forgotPasswordErrorMessage }}</div>
+                <button type="button" class="btn-close" (click)="forgotPasswordErrorMessage = null" aria-label="Close"></button>
+              </div>
+
+              <!-- Step 1: Corporate Email Input -->
+              <div class="mb-3">
+                <label for="recoveryEmail" class="form-label fw-semibold small text-secondary">
+                  <i class="bi bi-envelope-at-fill me-1 text-primary"></i> Registered Corporate Email ID
+                </label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light border-end-0 text-muted">
+                    <i class="bi bi-envelope"></i>
+                  </span>
+                  <input
+                    type="email"
+                    id="recoveryEmail"
+                    name="recoveryEmail"
+                    class="form-control border-start-0 ps-1"
+                    placeholder="e.g. your.name@company.com"
+                    [(ngModel)]="forgotPasswordEmail"
+                    (input)="forgotPasswordErrorMessage = null; verifiedUser = null"
+                    (keydown.enter)="onVerifyEmail()"
+                    required
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary"
+                    (click)="onVerifyEmail()"
+                    [disabled]="!forgotPasswordEmail.trim()"
+                  >
+                    <i class="bi bi-search me-1"></i>
+                    Find Account
+                  </button>
+                </div>
+                <div class="form-text small" style="font-size: 0.75rem;">
+                  Enter the email address registered with your Travel Desk account.
+                </div>
+              </div>
+
+              <!-- Step 2: Found Account Actions -->
+              <div *ngIf="verifiedUser" class="verified-account-section mb-3">
+                <!-- Verified User Card -->
+                <div class="p-3 bg-light rounded border account-verified-card mb-3">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="d-flex align-items-center gap-2">
+                      <i class="bi bi-patch-check-fill text-success fs-5"></i>
+                      <div>
+                        <div class="fw-bold text-dark">{{ verifiedUser.fullName }}</div>
+                        <div class="text-muted small">{{ verifiedUser.email }}</div>
+                      </div>
+                    </div>
+                    <span class="badge" [ngClass]="getRoleBadgeClass(verifiedUser.role)">
+                      {{ verifiedUser.role }}
+                    </span>
+                  </div>
+                  <div class="small text-muted border-top pt-2 mt-2 d-flex justify-content-between">
+                    <span><i class="bi bi-building me-1"></i> Dept: <strong>{{ verifiedUser.departmentName || 'General' }}</strong></span>
+                    <span *ngIf="verifiedUser.managerName"><i class="bi bi-person-up me-1"></i> Mgr: {{ verifiedUser.managerName }}</span>
+                  </div>
+                </div>
+
+                <!-- Action 1: Join System Directly via Email ID -->
+                <div class="mb-3">
+                  <button
+                    type="button"
+                    class="btn btn-primary w-100 py-2 fw-semibold shadow-sm d-flex align-items-center justify-content-center gap-2"
+                    (click)="onJoinViaEmail()"
+                  >
+                    <i class="bi bi-box-arrow-in-right fs-5"></i>
+                    <span>Join System via Email ID</span>
+                  </button>
+                  <div class="form-text text-center small text-muted mt-1" style="font-size: 0.75rem;">
+                    Sign in immediately with your verified corporate identity without needing a password.
+                  </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="position-relative my-3 text-center">
+                  <hr class="text-muted opacity-25 m-0" />
+                  <span class="position-absolute top-50 start-50 translate-middle bg-white px-2 text-muted small fw-medium" style="font-size: 0.72rem;">
+                    OR SET A NEW PASSWORD
+                  </span>
+                </div>
+
+                <!-- Action 2: Reset Password & Join -->
+                <div class="p-3 border rounded bg-white">
+                  <label class="form-label small fw-semibold text-secondary mb-1">
+                    <i class="bi bi-key-fill text-primary me-1"></i> Set New Password
+                  </label>
+                  <div class="input-group mb-2">
+                    <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-lock"></i></span>
+                    <input
+                      [type]="showNewPassword ? 'text' : 'password'"
+                      class="form-control border-start-0 border-end-0 ps-1"
+                      [(ngModel)]="newPassword"
+                      placeholder="Enter new password (min 4 chars)"
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary border-start-0 bg-light text-muted"
+                      (click)="showNewPassword = !showNewPassword"
+                    >
+                      <i class="bi" [ngClass]="showNewPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary w-100 py-2 fw-semibold d-flex align-items-center justify-content-center gap-2"
+                    (click)="onResetPasswordAndJoin()"
+                    [disabled]="!newPassword || newPassword.trim().length < 4"
+                  >
+                    <i class="bi bi-check2-circle fs-5"></i>
+                    <span>Update Password & Join System</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Back to Login Link -->
+              <div class="text-center mt-3 pt-2 border-top">
+                <button type="button" class="btn btn-link text-decoration-none small text-muted p-0" (click)="backToLogin()">
+                  <i class="bi bi-arrow-left me-1"></i> Back to Password Login
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Card Footer -->
+          <div class="card-footer bg-light border-0 text-center py-3 text-muted" style="font-size: 0.75rem;">
+            <i class="bi bi-shield-check text-success me-1"></i>
+            Rishabh Software Corporate Portal &bull; Secure Encrypted Session
+          </div>
+        </div>
+
+        </div><!-- /.login-card-container -->
+      </div><!-- /.login-right-col -->
+    </div><!-- /.row -->
+  </div><!-- /.container-fluid -->
+</div><!-- /.login-wrapper -->

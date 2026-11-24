@@ -1,0 +1,355 @@
+<!-- Splash Screen (3-Second Presentation with Official Emblem) -->
+<div class="splash-screen" *ngIf="showSplash" [class.fade-out]="isFadingSplash" role="status" aria-label="Loading Corporate Travel Desk">
+  <div class="splash-content text-center">
+    <!-- Official Emblem -->
+    <div class="splash-logo-container mb-3">
+      <img src="rishabh-splash-logo.png" alt="Rishabh Software Emblem" class="splash-logo" />
+    </div>
+
+    <!-- Corporate Branding with White Typography on #00205C background -->
+    <h1 class="splash-title mb-1">TMS.rishabhsoft.com</h1>
+    <p class="splash-subtitle mb-4">Corporate Travel Management System</p>
+
+    <!-- Progress Indicator with Glowing White Bar -->
+    <div class="splash-progress-track mx-auto mb-3">
+      <div class="splash-progress-bar"></div>
+    </div>
+    <div class="splash-status small"> 
+      Initializing Corporate Travel Desk...
+    </div>
+  </div>
+</div>
+
+<!-- Direct Login Page (When Not Logged In) -->
+<div *ngIf="!isLoggedIn" class="direct-login-view">
+  <!-- Global Alert Notifications (e.g. after logout) -->
+  <div class="container-fluid px-4 pt-3 position-absolute top-0 start-0 w-100" style="z-index: 10;" *ngIf="alertMessage">
+    <div class="alert alert-dismissible fade show mb-0 shadow-sm mx-auto" style="max-width: 500px;" [ngClass]="'alert-' + alertType" role="alert">
+      <div class="d-flex align-items-center">
+        <i class="bi me-2 fs-5" [ngClass]="alertType === 'success' ? 'bi-check-circle-fill' : alertType === 'warning' ? 'bi-exclamation-triangle-fill' : alertType === 'info' ? 'bi-info-circle-fill' : 'bi-x-circle-fill'"></i>
+        <div class="flex-grow-1">{{ alertMessage }}</div>
+        <button type="button" class="btn-close" (click)="clearAlert()" aria-label="Close"></button>
+      </div>
+    </div>
+  </div>
+
+  <app-login (loginSuccess)="onLoginSuccess($event)"></app-login>
+</div>
+
+<!-- Authenticated Corporate Workspace (When Logged In) -->
+<ng-container *ngIf="isLoggedIn">
+  <!-- Top Corporate Header -->
+  <header class="navbar navbar-expand-lg bg-white border-bottom shadow-sm px-3 px-md-4 py-2 sticky-top corporate-header">
+    <div class="container-fluid px-0 d-flex align-items-center justify-content-between position-relative flex-wrap flex-md-nowrap">
+      <!-- Rishabh Software Official Logo -->
+      <div class="d-flex align-items-center header-brand-col">
+        <img src="rishabh-logo.png" alt="Rishabh Software" class="header-logo" />
+      </div>
+
+      <!-- Corporate Travel Management System - Centered -->
+      <div class="header-title-container text-center">
+        <h1 class="header-app-title">
+          TMS.rishabhsoft.com
+        </h1>
+      </div>
+
+      <!-- User Role : User Name & Logout (Replaces Active Persona) -->
+      <div class="ms-auto ms-md-0 d-flex align-items-center header-user-col gap-2">
+        <!-- Notification Center Bell Icon -->
+        <app-notification-center
+          [currentUser]="currentUser"
+          (openNotificationsTab)="switchTab('notifications')"
+          (viewRequest)="navigateToRequestFromNotification($event)">
+        </app-notification-center>
+
+        <div class="d-flex align-items-center gap-2 px-3 py-1.5 rounded-pill border bg-light shadow-sm user-badge-container"
+             style="cursor: pointer;"
+             (click)="switchTab('profile')"
+             title="Click to view My Profile: {{ currentUser.fullName }} ({{ currentUser.role }})">
+          <i class="bi bi-person-badge-fill text-primary"></i>
+          <span class="fw-bold text-dark user-role-name">
+            {{ currentUser.role }} : {{ currentUser.fullName }}
+          </span>
+        </div>
+        <button class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 shadow-none rounded-pill px-3 py-1.5 fw-semibold btn-logout" 
+                (click)="logout()" 
+                title="Logout from Corporate TMS">
+          <i class="bi bi-box-arrow-right"></i>
+          <span class="d-none d-sm-inline">Logout</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Dashboard Container -->
+  <main class="container-fluid px-4 py-4">
+
+  <!-- Operational Feedback & Alert Notifications -->
+  <div *ngIf="alertMessage" class="alert alert-dismissible fade show mb-4 shadow-sm" [ngClass]="'alert-' + alertType" role="alert">
+    <div class="d-flex align-items-center">
+      <i class="bi me-2 fs-5" [ngClass]="alertType === 'success' ? 'bi-check-circle-fill' : alertType === 'warning' ? 'bi-exclamation-triangle-fill' : alertType === 'info' ? 'bi-info-circle-fill' : 'bi-x-circle-fill'"></i>
+      <div class="flex-grow-1">{{ alertMessage }}</div>
+      <button type="button" class="btn-close" (click)="clearAlert()" aria-label="Close"></button>
+    </div>
+  </div>
+
+  <!-- Backend Connection Status Warning -->
+  <div *ngIf="backendError" class="alert alert-warning alert-dismissible fade show mb-4 shadow-sm" role="alert">
+    <div class="d-flex align-items-center">
+      <i class="bi bi-hdd-network me-2 fs-5"></i>
+      <div class="flex-grow-1">
+        <strong>Backend Connection Notice:</strong> {{ backendError }}
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-warning ms-3" (click)="loadData()">
+        <i class="bi bi-arrow-clockwise me-1"></i> Retry
+      </button>
+      <button type="button" class="btn-close" (click)="backendError = null" aria-label="Close"></button>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs (Prominent & Spacious) -->
+  <ul class="nav nav-pills mb-4 corporate-nav-tabs">
+    <li class="nav-item">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'requests'" (click)="switchTab('requests')">
+        <i class="bi bi-send me-2"></i> My Requests & New Travel
+      </button>
+    </li>
+    <li class="nav-item">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'approvals'" (click)="switchTab('approvals')">
+        <i class="bi bi-check2-circle me-2"></i> Approval Queue
+        <span *ngIf="countPendingApprovalsForUser > 0" class="badge bg-danger ms-1 rounded-pill">
+          {{ countPendingApprovalsForUser }}
+        </span>
+      </button>
+    </li>
+    <li class="nav-item" *ngIf="selectedRequest">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'trip-details'" (click)="switchTab('trip-details')">
+        <i class="bi bi-journal-text me-2"></i> Trip Details #{{ selectedRequest.id }}
+      </button>
+    </li>
+    <li class="nav-item">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'reports'" (click)="switchTab('reports')">
+        <i class="bi bi-graph-up me-2"></i> Cost & Analytics
+      </button>
+    </li>
+    <li class="nav-item">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'notifications'" (click)="switchTab('notifications')">
+        <i class="bi bi-bell-fill me-2 text-warning"></i> Notifications
+        <span *ngIf="unreadNotificationCount > 0" class="badge bg-danger ms-1 rounded-pill">
+          {{ unreadNotificationCount > 99 ? '99+' : unreadNotificationCount }}
+        </span>
+      </button>
+    </li>
+    <li class="nav-item">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'profile'" (click)="switchTab('profile')">
+        <i class="bi bi-person-circle me-2"></i> My Profile
+      </button>
+    </li>
+    <li class="nav-item" *ngIf="isAdmin">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'admin'" (click)="switchTab('admin')">
+        <i class="bi bi-shield-lock-fill me-2 text-warning"></i> Admin Portal
+      </button>
+    </li>
+  </ul>
+
+  <!-- TAB 1: My Requests and New Travel -->
+  <div [hidden]="activeTab !== 'requests'" class="tab-pane-instant">
+    <app-my-requests-and-new-travel
+      [requests]="requests"
+      [statusFilter]="statusFilter"
+      [currentUser]="currentUser"
+      [editingDraftId]="editingDraftId"
+      [isSubmittingRequest]="isSubmittingRequest"
+      [isDeletingRequestId]="isDeletingRequestId"
+      [newRequest]="newRequest"
+      (statusFilterChange)="setStatusFilter($event)"
+      (submitRequest)="submitRequest($event)"
+      (cancelEditDraft)="cancelEditDraft()"
+      (loadDraft)="loadDraftIntoForm($event)"
+      (viewTripDetails)="viewTripDetails($event)"
+      (deleteRequest)="deleteRequest($event)">
+    </app-my-requests-and-new-travel>
+  </div>
+
+  <!-- TAB 2: Approval Queue -->
+  <div [hidden]="activeTab !== 'approvals'" class="tab-pane-instant">
+    <app-approval-queue
+      [requests]="requests"
+      [currentUser]="currentUser"
+      [processingApprovalId]="processingApprovalId"
+      [isDeletingRequestId]="isDeletingRequestId"
+      [rejectingRequest]="rejectingRequest"
+      [rejectionComment]="rejectionComment"
+      [reimbursementRequestedTripIds]="reimbursementRequestedTripIds"
+      (approve)="reviewRequest($event, 'APPROVE')"
+      (openRejectModal)="openRejectModal($event)"
+      (confirmReject)="confirmRejectRequest()"
+      (cancelReject)="cancelRejection()"
+      (rejectionCommentChange)="rejectionComment = $event"
+      (viewTripDetails)="viewTripDetails($event)"
+      (deleteRequest)="deleteRequest($event)">
+    </app-approval-queue>
+  </div>
+
+  <!-- TAB 3: Trip Details -->
+  <div *ngIf="selectedRequest" [hidden]="activeTab !== 'trip-details'" class="tab-pane-instant">
+    <app-trip-details
+      [selectedRequest]="selectedRequest"
+      [currentUser]="currentUser"
+      [auditLogs]="auditLogs"
+      [expenses]="expenses"
+      [segments]="segments"
+      [isAddingExpense]="isAddingExpense"
+      [showAddExpenseForm]="showAddExpenseForm"
+      [expenseClaim]="expenseClaim"
+      [approvingExpenseId]="approvingExpenseId"
+      [rejectingExpenseId]="rejectingExpenseId"
+      [reimbursingExpenseId]="reimbursingExpenseId"
+      [isDeletingRequestId]="isDeletingRequestId"
+      [isSubmittingReimbursement]="isSubmittingReimbursement"
+      [reimbursementRequested]="isReimbursementRequested(selectedRequest.id)"
+      (toggleAddExpense)="toggleAddExpenseForm()"
+      (addExpense)="addExpense()"
+      (approveExpense)="approveExpense($event)"
+      (rejectExpense)="rejectExpense($event)"
+      (reimburseExpense)="reimburseExpense($event)"
+      (deleteRequest)="deleteRequest($event)"
+      (submitReimbursementClaim)="submitReimbursementClaim($event)"
+      (addSegment)="onAddSegment($event)"
+      (deleteSegment)="onDeleteSegment($event)">
+    </app-trip-details>
+  </div>
+
+  <!-- TAB 4: Cost & Analytics -->
+  <div [hidden]="activeTab !== 'reports'" class="tab-pane-instant">
+    <app-cost-and-analytics
+      [costSummary]="costSummary"
+      [departmentSpends]="departmentSpends"
+      [countPending]="countPending"
+      [countDraft]="countDraft">
+    </app-cost-and-analytics>
+  </div>
+
+  <!-- TAB 5: Admin Portal (Restricted Strictly to Admin Only) -->
+  <div *ngIf="isAdmin" [hidden]="activeTab !== 'admin'" class="tab-pane-instant">
+    <app-admin-portal
+      [currentUser]="currentUser"
+      [requests]="requests"
+      (userCreated)="onUserCreated($event)"
+      (userDeleted)="onUserDeleted($event)"
+      (userAssignmentsUpdated)="onUserAssignmentsUpdated($event)"
+      (userSwitched)="onUserSwitched($event)"
+      (budgetUpdated)="onAdminBudgetUpdated($event)"
+      (deleteRequest)="deleteRequest($event)"
+      (viewTripDetails)="viewTripDetails($event)">
+    </app-admin-portal>
+  </div>
+
+  <!-- TAB: Corporate Notification Center (Available for All Users) -->
+  <div [hidden]="activeTab !== 'notifications'" class="tab-pane-instant">
+    <div class="rs-card p-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom gap-2">
+        <div>
+          <h5 class="fw-bold mb-1 text-primary">
+            <i class="bi bi-bell-fill me-2 text-warning"></i> Corporate Notification Center
+          </h5>
+          <small class="text-muted">
+            Workflow updates, manager & finance review decisions, expense claims, and policy notices for <strong>{{ currentUser.fullName }}</strong> ({{ currentUser.role }})
+          </small>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <div class="btn-group btn-group-sm" role="group" aria-label="Filter notifications">
+            <button type="button" 
+                    class="btn btn-sm px-3 fw-semibold"
+                    [ngClass]="notificationFilter === 'ALL' ? 'btn-primary' : 'btn-outline-secondary'"
+                    (click)="notificationFilter = 'ALL'">
+              All ({{ userNotifications.length }})
+            </button>
+            <button type="button" 
+                    class="btn btn-sm px-3 fw-semibold"
+                    [ngClass]="notificationFilter === 'UNREAD' ? 'btn-primary' : 'btn-outline-secondary'"
+                    (click)="notificationFilter = 'UNREAD'">
+              Unread ({{ unreadNotificationCount }})
+            </button>
+          </div>
+          <button type="button" 
+                  class="btn btn-sm btn-outline-primary fw-semibold"
+                  [disabled]="unreadNotificationCount === 0"
+                  (click)="markAllNotificationsAsRead()">
+            <i class="bi bi-check2-all me-1"></i> Mark All Read
+          </button>
+          <button type="button" 
+                  class="btn btn-sm btn-outline-danger fw-semibold"
+                  [disabled]="userNotifications.length === 0"
+                  (click)="clearAllNotifications()">
+            <i class="bi bi-trash3 me-1"></i> Clear All
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="filteredUserNotifications.length === 0" class="text-center py-5 text-muted bg-light rounded-3 border">
+        <i class="bi bi-bell-slash fs-1 d-block mb-2 text-secondary"></i>
+        <h6 class="fw-bold mb-1">No {{ notificationFilter === 'UNREAD' ? 'unread' : '' }} notifications</h6>
+        <p class="small text-muted mb-0">
+          {{ notificationFilter === 'UNREAD' ? 'You have caught up with all updates!' : 'Workflow and travel request notifications will appear here.' }}
+        </p>
+      </div>
+
+      <!-- Notifications List -->
+      <div *ngIf="filteredUserNotifications.length > 0" class="list-group list-group-flush border rounded-3 overflow-hidden shadow-sm">
+        <div *ngFor="let notif of filteredUserNotifications"
+             class="list-group-item list-group-item-action p-3 d-flex align-items-start justify-content-between gap-3"
+             [ngClass]="{'bg-primary-subtle border-start border-4 border-primary': !notif.isRead, 'bg-white': notif.isRead}"
+             style="cursor: pointer;"
+             (click)="onNotificationItemClick(notif)">
+          <div class="d-flex align-items-start gap-3 flex-grow-1">
+            <div class="p-2 rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
+                 style="width: 40px; height: 40px;"
+                 [ngClass]="getNotificationBadgeClass(notif.type)">
+              <i class="bi fs-5" [ngClass]="getNotificationIconClass(notif.type)"></i>
+            </div>
+            <div class="flex-grow-1">
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge" [ngClass]="notif.isRead ? 'bg-secondary' : 'bg-primary'">
+                  {{ notif.type }}
+                </span>
+                <h6 class="mb-0 fw-bold text-dark">{{ notif.title }}</h6>
+                <span *ngIf="!notif.isRead" class="badge bg-danger rounded-pill" style="font-size: 0.68rem;">New</span>
+              </div>
+              <p class="small text-dark mb-1" style="line-height: 1.4;">{{ notif.message }}</p>
+              <div class="d-flex align-items-center gap-3 small text-muted" style="font-size: 0.75rem;">
+                <span><i class="bi bi-clock me-1"></i>{{ notif.createdAt | date:'medium' }}</span>
+                <span *ngIf="notif.requestId" class="fw-semibold text-primary"><i class="bi bi-link-45deg me-1"></i>Trip #{{ notif.requestId }}</span>
+                <span><i class="bi bi-person me-1"></i>From: {{ notif.senderName || 'System' }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-1 flex-shrink-0" (click)="$event.stopPropagation()">
+            <button type="button" 
+                    class="btn btn-sm btn-outline-secondary py-1 px-2"
+                    (click)="toggleNotificationRead(notif)"
+                    [title]="notif.isRead ? 'Mark as unread' : 'Mark as read'">
+              <i class="bi" [ngClass]="notif.isRead ? 'bi-envelope' : 'bi-envelope-open'"></i>
+            </button>
+            <button type="button" 
+                    class="btn btn-sm btn-outline-danger py-1 px-2"
+                    (click)="deleteNotification(notif.id)"
+                    title="Delete notification">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 6: My Profile (Available for All Users) -->
+  <div [hidden]="activeTab !== 'profile'" class="tab-pane-instant">
+    <app-my-profile
+      [currentUser]="currentUser"
+      (profileUpdated)="onProfileUpdated($event)">
+    </app-my-profile>
+  </div>
+</main>
+</ng-container>

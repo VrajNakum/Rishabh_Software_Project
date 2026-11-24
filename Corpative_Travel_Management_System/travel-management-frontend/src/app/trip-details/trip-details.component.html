@@ -1,0 +1,864 @@
+<div *ngIf="selectedRequest">
+  <!-- Clear Rejection Decision Card -->
+  <div *ngIf="selectedRequest.status === 'REJECTED'" class="card border-danger shadow-sm mb-4">
+    <div class="card-header bg-danger text-white py-2 px-3 d-flex align-items-center justify-content-between">
+      <span class="fw-bold d-flex align-items-center">
+        <i class="bi bi-x-octagon-fill me-2 fs-5"></i> Travel Request Rejected
+      </span>
+      <span class="badge bg-white text-danger fw-semibold px-2 py-1" *ngIf="rejectionTimestamp">
+        {{ rejectionTimestamp | date:'medium' }}
+      </span>
+    </div>
+    <div class="card-body p-3 bg-danger-subtle bg-opacity-25">
+      <div class="row align-items-center g-2 mb-2">
+        <div class="col-auto">
+          <span class="badge bg-danger text-white px-3 py-2 fs-6">
+            <i class="bi bi-person-x-fill me-1"></i> Rejected By: {{ rejectionReviewerName }}
+          </span>
+        </div>
+        <div class="col">
+          <small class="text-muted">Official decision recorded in approval audit log</small>
+        </div>
+      </div>
+      <div class="p-3 bg-white rounded border border-danger-subtle mt-2">
+        <label class="text-muted small fw-bold text-uppercase d-block mb-1">
+          <i class="bi bi-chat-quote-fill text-danger me-1"></i> Reason / Feedback Comment to Employee:
+        </label>
+        <div class="fs-6 text-dark fw-medium">
+          "{{ rejectionFeedbackMessage }}"
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Banner for Selected Trip -->
+  <div class="rs-card p-3 mb-4 d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <div class="d-flex align-items-center gap-3">
+      <div class="p-2 rounded bg-light text-primary fs-4">
+        <i class="bi bi-geo-alt-fill text-danger"></i>
+      </div>
+      <div>
+        <h5 class="fw-bold mb-0">Trip #{{ selectedRequest.id }}: {{ selectedRequest.destination }}</h5>
+        <small class="text-muted">
+          {{ selectedRequest.startDate }} to {{ selectedRequest.endDate }} &bull;
+          Budget: ${{ selectedRequest.estimatedBudget | number:'1.2-2' }} &bull;
+          Traveler: {{ selectedRequest.employeeName }} ({{ selectedRequest.departmentName }})
+        </small>
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="status-badge fs-6 fw-bold" [ngClass]="'badge-' + selectedRequest.status.toLowerCase().replace('_', '-')">
+        {{ formatStatusLabel(selectedRequest.status) }}
+      </span>
+      <button *ngIf="canDeleteRequest(selectedRequest.status)"
+              class="btn btn-sm btn-outline-danger" 
+              (click)="onDeleteRequest(selectedRequest)" 
+              [title]="getDeleteTitle(selectedRequest.status)">
+        <i class="bi bi-trash me-1"></i>
+        Delete
+      </button>
+    </div>
+  </div>
+
+  <!-- Itinerary Segments & Bookings Section -->
+  <div class="rs-card p-4 mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <div>
+        <h5 class="fw-bold mb-0">
+          <i class="bi bi-map-fill text-primary me-2"></i> Itinerary Segments & Bookings
+        </h5>
+        <small class="text-muted">Travel arrangements, flights, hotel bookings, and scheduled transport for this trip</small>
+      </div>
+      <div>
+        <button *ngIf="isManagerApproved"
+                type="button" 
+                class="btn btn-sm btn-outline-primary d-flex align-items-center shadow-sm px-3"
+                (click)="onToggleAddSegmentForm()">
+          <i class="bi" [ngClass]="showAddSegmentForm ? 'bi-x-lg' : 'bi-plus-circle-fill'"></i>
+          <span class="ms-1 fw-semibold">{{ showAddSegmentForm ? 'Cancel' : 'Add Itinerary Segment' }}</span>
+        </button>
+        <button *ngIf="!isManagerApproved"
+                type="button" 
+                class="btn btn-sm btn-secondary opacity-75 d-flex align-items-center shadow-sm px-3"
+                disabled
+                title="Itinerary segments can only be added after Manager approval">
+          <i class="bi bi-lock-fill me-1"></i>
+          <span class="ms-1 fw-semibold">Add Itinerary (Requires Manager Approval)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Manager Approval Required Notice -->
+    <div *ngIf="!isManagerApproved" class="alert alert-warning py-2.5 px-3 small d-flex align-items-center mb-3 border-warning-subtle rounded-3">
+      <i class="bi bi-exclamation-triangle-fill text-warning me-2 fs-5"></i>
+      <div>
+        <strong>Manager Approval Required:</strong> Itinerary segments and bookings cannot be added until this travel request has been reviewed and approved by the assigned manager.
+      </div>
+    </div>
+
+    <!-- Add Segment Form -->
+    <div *ngIf="showAddSegmentForm" class="p-3 mb-3 bg-light rounded-3 border border-primary-subtle shadow-sm fade-in">
+      <h6 class="fw-bold text-primary mb-3">
+        <i class="bi bi-plus-circle-dotted me-1"></i> Add Travel / Booking Segment
+      </h6>
+      <div class="row g-2 mb-2">
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Segment Type <span class="text-danger">*</span></label>
+          <select class="form-select form-select-sm" [(ngModel)]="newSegment.segmentType" title="Select segment type">
+            <option value="" disabled selected hidden>Select Segment Type (Flight, Hotel, Food...)</option>
+            <option value="" disabled>-- Select Segment Type --</option>
+            <option *ngFor="let type of segmentTypes" [value]="type">{{ type }}</option>
+          </select>
+          <div class="form-text small" style="font-size: 0.72rem;">Flight, Hotel, Food, Cab, Train, Bus</div>
+        </div>
+        <div class="col-md-5">
+          <label class="form-label small fw-semibold">Title / Provider <span class="text-danger">*</span></label>
+          <input type="text" 
+                 class="form-control form-control-sm" 
+                 [(ngModel)]="newSegment.title" 
+                 placeholder="e.g. Flight AI-502, Marriott Hotel, Uber, Rajdhani Express">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Location / Route <span class="text-danger">*</span></label>
+          <input type="text" 
+                 class="form-control form-control-sm" 
+                 [(ngModel)]="newSegment.location" 
+                 placeholder="e.g. Bengaluru, India or Mumbai Airport Terminal 2">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Departure / Check-in <span class="text-danger">*</span></label>
+          <input type="datetime-local" 
+                 class="form-control form-control-sm" 
+                 [(ngModel)]="newSegment.startTime"
+                 placeholder="Select departure date & time"
+                 title="Select departure or check-in date and time">
+          <div class="form-text small" style="font-size: 0.72rem;">e.g. Departure / Check-in schedule</div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Arrival / Check-out <span class="text-danger">*</span></label>
+          <input type="datetime-local" 
+                 class="form-control form-control-sm" 
+                 [(ngModel)]="newSegment.endTime"
+                 placeholder="Select arrival date & time"
+                 title="Select arrival or check-out date and time">
+          <div class="form-text small" style="font-size: 0.72rem;">e.g. Arrival / Check-out schedule</div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold text-primary">
+            <i class="bi bi-briefcase-fill me-1"></i> Purpose of Work / Business Activity <span class="text-danger">*</span>
+          </label>
+          <input type="text" 
+                 class="form-control form-control-sm" 
+                 [(ngModel)]="newSegment.purposeOfWork" 
+                 placeholder="e.g. Client discovery workshop, On-site system deployment, Executive summit">
+          <div class="form-text small" style="font-size: 0.72rem;">Trip Work Goal: "{{ selectedRequest.purpose }}"</div>
+        </div>
+        <!-- Notes / Booking Details & Booking Ticket / Bill Proof (PDF) In One Line -->
+        <div class="col-12">
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label small fw-semibold">Notes / Booking Details</label>
+              <input type="text" 
+                     class="form-control form-control-sm" 
+                     [(ngModel)]="newSegment.notes" 
+                     placeholder="e.g. PNR / Booking confirmation number, Seat 14B, Deluxe room, driver details">
+              <div class="form-text small" style="font-size: 0.72rem;">Optional booking references, seat numbers, or remarks</div>
+            </div>
+
+            <div class="col-6">
+              <label class="form-label small fw-semibold text-danger">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i> Booking Ticket / Bill Proof (PDF)
+              </label>
+              <div class="input-group input-group-sm">
+                <input type="file" 
+                       class="form-control form-control-sm" 
+                       accept="application/pdf,.pdf"
+                       placeholder="Choose PDF e-ticket, boarding pass, or hotel booking voucher"
+                       title="Upload PDF booking voucher or ticket"
+                       (change)="onSegmentFileSelected($event)">
+                <button *ngIf="selectedSegmentPdfName" 
+                        type="button" 
+                        class="btn btn-sm btn-outline-danger" 
+                        (click)="removeSelectedSegmentPdf()">
+                  <i class="bi bi-x-circle me-1"></i> Remove
+                </button>
+              </div>
+              <div *ngIf="selectedSegmentPdfName" class="form-text text-success small mt-1 d-flex align-items-center">
+                <i class="bi bi-filetype-pdf fs-6 me-1"></i>
+                <span><strong>{{ selectedSegmentPdfName }}</strong> ({{ selectedSegmentPdfSize }}) selected</span>
+              </div>
+              <div *ngIf="segmentPdfUploadError" class="form-text text-danger small mt-1">
+                <i class="bi bi-exclamation-circle me-1"></i>{{ segmentPdfUploadError }}
+              </div>
+              <div *ngIf="!selectedSegmentPdfName && !segmentPdfUploadError" class="form-text text-muted small" style="font-size: 0.72rem;">
+                Upload PDF e-ticket, boarding pass, hotel confirmation voucher, or receipt proof (Max 10MB).
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="d-flex justify-content-end gap-2 mt-3">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="onToggleAddSegmentForm()">Cancel</button>
+        <button type="button" class="btn btn-sm btn-primary fw-semibold" (click)="onSubmitSegment()">
+          <i class="bi bi-check-lg me-1"></i> Save Segment to Database
+        </button>
+      </div>
+    </div>
+
+    <!-- Segments Table -->
+    <div class="table-responsive" *ngIf="segments && segments.length > 0">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light small text-uppercase">
+          <tr>
+            <th>Type</th>
+            <th>Title / Service</th>
+            <th>Location</th>
+            <th>Departure / Start</th>
+            <th>Arrival / End</th>
+            <th>Purpose of Work</th>
+            <th>Notes</th>
+            <th>Ticket / Proof (PDF)</th>
+            <th class="text-end" *ngIf="isAdmin || isTraveler">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let seg of segments">
+            <td>
+              <span class="badge bg-light text-dark border px-2 py-1">
+                <i class="bi me-1" [ngClass]="getSegmentIcon(seg.segmentType)"></i>
+                {{ seg.segmentType }}
+              </span>
+            </td>
+            <td>
+              <strong>{{ seg.title }}</strong>
+            </td>
+            <td>
+              <i class="bi bi-geo-alt me-1 text-danger"></i> {{ seg.location }}
+            </td>
+            <td>
+              <small class="fw-semibold text-dark">{{ seg.startTime | date:'medium' }}</small>
+            </td>
+            <td>
+              <small class="fw-semibold text-dark">{{ seg.endTime | date:'medium' }}</small>
+            </td>
+            <td>
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 small" [title]="seg.purposeOfWork || selectedRequest.purpose">
+                <i class="bi bi-briefcase me-1"></i>
+                {{ seg.purposeOfWork || selectedRequest.purpose }}
+              </span>
+            </td>
+            <td>
+              <small class="text-muted">{{ seg.notes || '-' }}</small>
+            </td>
+            <td>
+              <button *ngIf="seg.proofFileUrl" 
+                      type="button" 
+                      class="btn btn-sm btn-outline-danger py-0 px-2 d-inline-flex align-items-center gap-1 shadow-sm"
+                      (click)="openSegmentPdfPreview(seg)"
+                      title="View Attached Ticket / Booking Proof PDF">
+                <i class="bi bi-file-earmark-pdf-fill"></i>
+                <span style="font-size: 0.75rem;">View PDF</span>
+              </button>
+              <span *ngIf="!seg.proofFileUrl" class="text-muted small fst-italic">No PDF</span>
+            </td>
+            <td class="text-end" *ngIf="isAdmin || isTraveler">
+              <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" (click)="onDeleteSegment(seg.id)" title="Delete Segment">
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div *ngIf="!segments || segments.length === 0" class="text-center py-4 text-muted bg-light rounded-3 border">
+      <i class="bi bi-calendar2-range fs-3 d-block mb-1 text-muted"></i>
+      <span class="small">No itinerary segments recorded for this trip yet.</span>
+      <div class="mt-2" *ngIf="(isAdmin || isTraveler) && isManagerApproved">
+        <button type="button" class="btn btn-sm btn-outline-primary" (click)="onToggleAddSegmentForm()">
+          <i class="bi bi-plus-circle me-1"></i> Add First Itinerary Segment
+        </button>
+      </div>
+      <div class="mt-2 text-warning small fw-semibold" *ngIf="!isManagerApproved">
+        <i class="bi bi-lock-fill me-1"></i> Awaiting Manager approval to unlock itinerary bookings
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Audit Trail -->
+    <div class="col-lg-6">
+      <div class="rs-card p-4 mb-4">
+        <h5 class="fw-bold mb-3"><i class="bi bi-clock-history me-1"></i> Approval Audit Log</h5>
+        <ul class="list-group list-group-flush">
+          <li *ngFor="let log of auditLogs" class="list-group-item px-0 py-2">
+            <div class="d-flex justify-content-between">
+              <strong>{{ log.actionByUserName }}</strong>
+              <small class="text-muted">{{ log.actionTimestamp | date:'short' }}</small>
+            </div>
+            <div class="small d-flex align-items-center gap-2 mt-1">
+              <span class="status-badge" [ngClass]="'badge-' + (log.previousStatus || 'draft').toLowerCase().replace('_', '-')">
+                {{ formatStatusLabel(log.previousStatus) }}
+              </span>
+              <i class="bi bi-arrow-right text-muted"></i>
+              <span class="status-badge" [ngClass]="'badge-' + log.newStatus.toLowerCase().replace('_', '-')">
+                {{ formatStatusLabel(log.newStatus) }}
+              </span>
+            </div>
+            <div class="small mt-1 p-2 rounded" 
+                 [ngClass]="log.newStatus === 'REJECTED' ? 'bg-danger-subtle border border-danger-subtle text-danger fw-semibold' : 'fst-italic bg-light text-muted'" 
+                 *ngIf="log.comments">
+              <i *ngIf="log.newStatus === 'REJECTED'" class="bi bi-chat-left-text-fill me-1"></i>
+              "{{ log.comments }}"
+            </div>
+          </li>
+          <li *ngIf="auditLogs.length === 0" class="list-group-item px-0 py-3 text-center text-muted">
+            No audit logs recorded for this travel request yet.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Expense Submissions -->
+    <div class="col-lg-6">
+      <div class="rs-card p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h5 class="fw-bold mb-0">
+              <i class="bi bi-receipt me-1 text-primary"></i> Expenses & Claims
+            </h5>
+            <small class="text-muted">Employee claim submissions & Finance approvals</small>
+          </div>
+          <!-- Add Claim Button: Locked until Finance approval -->
+          <div>
+            <button *ngIf="isFinanceApproved"
+                    type="button"
+                    class="btn btn-sm btn-primary d-flex align-items-center shadow-sm px-3"
+                    (click)="onToggleAddExpenseForm()"
+                    [title]="showAddExpenseForm ? 'Close claim form' : 'Submit new expense claim for Finance approval'">
+              <i class="bi" [ngClass]="showAddExpenseForm ? 'bi-x-lg' : 'bi-plus-circle-fill'"></i>
+              <span class="ms-1 fw-semibold">{{ showAddExpenseForm ? 'Cancel' : 'Add Claim' }}</span>
+            </button>
+            <button *ngIf="!isFinanceApproved"
+                    type="button"
+                    class="btn btn-sm btn-secondary opacity-75 d-flex align-items-center shadow-sm px-3"
+                    disabled
+                    title="Expense claims can only be submitted after Finance approval">
+              <i class="bi bi-lock-fill me-1"></i>
+              <span class="ms-1 fw-semibold">Add Claim (Requires Finance Approval)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Finance Approval Required Notice for Expenses -->
+        <div *ngIf="!isFinanceApproved" class="alert alert-warning py-2.5 px-3 small d-flex align-items-center mb-3 border-warning-subtle rounded-3">
+          <i class="bi bi-exclamation-triangle-fill text-warning me-2 fs-5"></i>
+          <div>
+            <strong>Finance Approval Required:</strong> Expense claims and bills cannot be submitted until this travel request has been reviewed and approved by the assigned Finance officer.
+          </div>
+        </div>
+
+        <!-- Prominent Top Reimbursement Request Banner -->
+        <div *ngIf="reimbursementRequested && selectedRequest.status === 'APPROVED' && !allExpensesReimbursed && expenses.length > 0" 
+             class="alert alert-success py-2.5 px-3 small mb-3 border-success-subtle shadow-sm">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-check-circle-fill text-success fs-5 flex-shrink-0"></i>
+            <div class="flex-grow-1">
+              <strong *ngIf="isAssignedFinance && !isTraveler">Reimbursement Request Assigned to You:</strong>
+              <strong *ngIf="!isAssignedFinance || isTraveler">Reimbursement Request Active:</strong>
+              <span *ngIf="isAssignedFinance && !isTraveler" class="ms-1">
+                Traveler <strong>{{ selectedRequest.employeeName }}</strong> has submitted this claim record of <strong>${{ displayReimbursementAmount | number:'1.2-2' }}</strong> exclusively to you for payment audit & reimbursement disbursement.
+              </span>
+              <span *ngIf="!isAssignedFinance || isTraveler" class="ms-1">
+                Claim record of <strong>${{ displayReimbursementAmount | number:'1.2-2' }}</strong> has been submitted to Finance Officer <strong>{{ getAssignedFinanceName() }}</strong> for payment payout processing.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add Expense Claim Form -->
+        <div *ngIf="showAddExpenseForm" 
+             class="mb-4 p-3 bg-light rounded-3 border border-primary-subtle shadow-sm fade-in">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold text-primary mb-0">
+              <i class="bi bi-plus-circle-dotted me-1"></i> Submit Expense Claim
+            </h6>
+            <span class="badge bg-primary-subtle text-primary small" *ngIf="currentUser">
+              Submitted by: {{ currentUser.fullName }} ({{ currentUser.role }})
+            </span>
+          </div>
+
+          <!-- Helpful Notice if trip is not yet approved -->
+          <div *ngIf="selectedRequest.status !== 'APPROVED'" class="alert alert-warning py-2 px-3 small d-flex align-items-center mb-3">
+            <i class="bi bi-exclamation-triangle-fill me-2 fs-6"></i>
+            <div>
+              <strong>Notice:</strong> This travel request is currently <strong>{{ formatStatusLabel(selectedRequest.status) }}</strong>. Travel requests should be <strong>Approved</strong> by Manager/Finance for expense claims to be submitted and reimbursed.
+            </div>
+          </div>
+
+          <div class="row g-2 mb-2">
+            <div class="col-md-5">
+              <label class="form-label small fw-semibold text-muted mb-1">Expense Category</label>
+              <select class="form-select form-select-sm" [(ngModel)]="expenseClaim.category">
+                <option *ngFor="let cat of expenseCategories" [value]="cat">{{ cat }}</option>
+              </select>
+            </div>
+            <div class="col-md-7">
+              <label class="form-label small fw-semibold text-muted mb-1">Claim Amount ($)</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">$</span>
+                <input type="number" 
+                       class="form-control" 
+                       [(ngModel)]="expenseClaim.amount" 
+                       placeholder="0.00" 
+                       min="0.01" 
+                       step="0.01">
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment Reason / Company Work Purpose -->
+          <div class="mb-2">
+            <label class="form-label small fw-semibold text-dark mb-1">
+              <i class="bi bi-briefcase-fill text-primary me-1"></i>
+              Payment Reason / Company Work Purpose <span class="text-danger">*</span>
+            </label>
+            <input type="text" 
+                   class="form-control form-control-sm" 
+                   [(ngModel)]="expenseClaim.paymentReason" 
+                   placeholder="e.g. Client dinner, taxi to site, workshop registration, emergency supplies...">
+            <div class="form-text small" style="font-size: 0.72rem;">
+              Specify why this payment was made for company business.
+            </div>
+          </div>
+
+          <!-- Upload PDF for Bill / Payment Transaction Proof -->
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-danger mb-1 d-flex align-items-center justify-content-between">
+              <span>
+                <i class="bi bi-file-earmark-pdf-fill text-danger me-1"></i>
+                Upload Bill / Payment Transaction Proof (PDF) <span class="text-danger">*</span>
+              </span>
+              <span class="badge bg-light text-muted border" style="font-size: 0.7rem;">PDF format up to 10MB</span>
+            </label>
+            <div class="input-group input-group-sm">
+              <input type="file" 
+                     class="form-control form-control-sm" 
+                     accept="application/pdf,.pdf" 
+                     (change)="onFileSelected($event)">
+              <button *ngIf="selectedPdfName || expenseClaim.receiptFileName" 
+                      type="button" 
+                      class="btn btn-sm btn-outline-danger" 
+                      (click)="removeSelectedPdf()">
+                <i class="bi bi-x-circle me-1"></i> Remove
+              </button>
+            </div>
+            <div *ngIf="selectedPdfName || expenseClaim.receiptFileName" class="form-text text-success small mt-1 d-flex align-items-center">
+              <i class="bi bi-filetype-pdf fs-6 me-1"></i>
+              <span><strong>{{ selectedPdfName || expenseClaim.receiptFileName }}</strong> ({{ selectedPdfSize || 'Attached' }}) selected as proof</span>
+            </div>
+            <div *ngIf="pdfUploadError" class="form-text text-danger small mt-1">
+              <i class="bi bi-exclamation-circle me-1"></i> {{ pdfUploadError }}
+            </div>
+            <div class="form-text text-muted small" style="font-size: 0.74rem;">
+              Upload PDF receipt, vendor tax invoice, or payment transaction slip for company audit (Max 10MB).
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-muted mb-1">Remarks / Additional Notes (Optional)</label>
+            <input type="text" 
+                   class="form-control form-control-sm" 
+                   [(ngModel)]="expenseClaim.remarks" 
+                   placeholder="Additional notes for Finance team (optional)...">
+          </div>
+
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" 
+                    class="btn btn-sm btn-outline-secondary" 
+                    (click)="onToggleAddExpenseForm()">
+              Cancel
+            </button>
+            <button type="button" 
+                    class="btn btn-sm btn-primary fw-semibold d-flex align-items-center shadow-sm" 
+                    [disabled]="!expenseClaim.amount || expenseClaim.amount <= 0"
+                    (click)="onSubmitExpense()">
+              <i class="bi bi-send-check-fill me-1"></i>
+              Submit Claim with Proof for Finance Approval
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr class="small text-uppercase table-light">
+                <th style="width: 15%;">Claim ID</th>
+                <th>Category & Purpose</th>
+                <th>Amount</th>
+                <th>Bill Proof (PDF)</th>
+                <th>Status</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let exp of paginatedExpenses">
+                <td>
+                  <span class="badge bg-light text-dark border fw-bold font-monospace px-2 py-1">
+                    #CLM-{{ exp.id }}
+                  </span>
+                  <div class="small text-muted mt-0.5" style="font-size: 0.72rem;">
+                    Trip #{{ exp.travelRequestId || selectedRequest?.id }}
+                  </div>
+                </td>
+                <td>
+                  <div class="d-flex align-items-center gap-1 mb-0.5">
+                    <span class="badge bg-secondary-subtle text-secondary border small" style="font-size: 0.72rem;">
+                      {{ exp.category }}
+                    </span>
+                  </div>
+                  <div class="small fw-semibold text-dark text-truncate" style="max-width: 200px;" [title]="exp.paymentReason || exp.remarks || 'No description'">
+                    {{ exp.paymentReason || exp.remarks || 'Business expense' }}
+                  </div>
+                  <small class="text-muted d-block text-truncate" style="font-size: 0.72rem; max-width: 200px;" *ngIf="exp.remarks && exp.paymentReason">
+                    Note: {{ exp.remarks }}
+                  </small>
+                </td>
+                <td class="fw-bold text-dark text-nowrap">${{ exp.amount | number:'1.2-2' }}</td>
+                <td>
+                  <!-- Bill Proof PDF preview button -->
+                  <div *ngIf="exp.receiptFileName || exp.receiptFileUrl">
+                    <button type="button" 
+                            class="btn btn-sm btn-outline-danger py-0 px-2 d-inline-flex align-items-center text-truncate"
+                            style="font-size: 0.75rem; max-width: 150px;"
+                            (click)="openPdfPreview(exp)"
+                            title="View Bill Proof & Payment Transaction Slip">
+                      <i class="bi bi-file-earmark-pdf-fill me-1 text-danger"></i>
+                      <span class="text-truncate">{{ exp.receiptFileName || 'Bill_Proof.pdf' }}</span>
+                    </button>
+                  </div>
+                  <div *ngIf="!exp.receiptFileName && !exp.receiptFileUrl" class="text-muted small fst-italic">
+                    None
+                  </div>
+                </td>
+                <td>
+                  <span class="status-badge" [ngClass]="'badge-' + exp.status.toLowerCase()">
+                    {{ formatStatusLabel(exp.status) }}
+                  </span>
+                </td>
+                <td class="text-end">
+                  <!-- 1. PENDING status: ONLY Assigned Finance Officer can Approve or Reject -->
+                  <div *ngIf="exp.status === 'PENDING' && isAssignedFinance" class="d-inline-flex align-items-center gap-1.5">
+                    <button class="btn btn-sm btn-success fw-semibold shadow-sm px-2.5 py-1 text-nowrap" 
+                            (click)="onApproveExpense(exp.id)"
+                            [title]="'Assigned Finance (' + getAssignedFinanceName() + '): Review and Approve this claim'">
+                      Approve Claim
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger fw-semibold shadow-sm px-2.5 py-1 text-nowrap" 
+                            (click)="onRejectExpense(exp.id)"
+                            [title]="'Assigned Finance (' + getAssignedFinanceName() + '): Reject this claim'">
+                      Reject
+                    </button>
+                  </div>
+
+                  <!-- PENDING status for Non-Assigned users (including other Finance officers) -->
+                  <span *ngIf="exp.status === 'PENDING' && !isAssignedFinance" 
+                        class="badge bg-warning-subtle text-warning border border-warning-subtle small"
+                        [title]="'Pending review and approval by designated Finance Officer: ' + getAssignedFinanceName()">
+                    <i class="bi bi-hourglass-split me-1"></i>Awaiting {{ getAssignedFinanceName() }}
+                  </span>
+
+                  <!-- 2. APPROVED status: ONLY Assigned Finance Officer can Reimburse one by one -->
+                  <button *ngIf="exp.status === 'APPROVED' && isAssignedFinance"
+                          class="btn btn-sm btn-primary fw-bold shadow-sm px-3 py-1 text-nowrap" 
+                          (click)="onReimburseExpense(exp.id)"
+                          [title]="'Assigned Finance (' + getAssignedFinanceName() + '): Disburse payout for this approved claim'">
+                    <i class="bi bi-wallet2 me-1"></i>
+                    Reimburse
+                  </button>
+
+                  <!-- APPROVED status for Non-Assigned users -->
+                  <span *ngIf="exp.status === 'APPROVED' && !isAssignedFinance" 
+                        class="badge bg-primary-subtle text-primary border border-primary-subtle small"
+                        [title]="'Approved by Finance, awaiting reimbursement payout by designated Finance Officer: ' + getAssignedFinanceName()">
+                    <i class="bi bi-check-circle-fill me-1"></i>Approved (Awaiting {{ getAssignedFinanceName() }} Payout)
+                  </span>
+
+                  <!-- 3. REIMBURSED status: Settled -->
+                  <span *ngIf="exp.status === 'REIMBURSED'" 
+                        class="badge bg-success-subtle text-success border border-success-subtle small">
+                    <i class="bi bi-check2-all me-1"></i>Reimbursed
+                  </span>
+
+                  <!-- 4. REJECTED status -->
+                  <span *ngIf="exp.status === 'REJECTED'" 
+                        class="badge bg-danger-subtle text-danger border border-danger-subtle small">
+                    <i class="bi bi-x-circle-fill me-1"></i>Claim Rejected
+                  </span>
+                </td>
+              </tr>
+              <tr *ngIf="expenses.length === 0">
+                <td colspan="6" class="text-center py-4 text-muted">
+                  <i class="bi bi-receipt-cutoff fs-3 d-block mb-2 text-secondary"></i>
+                  <div class="fw-semibold text-dark mb-1">No expense claims submitted for this trip yet</div>
+                  <p class="small text-muted mb-2">Submit travel expenses with PDF bill proof for Finance review & reimbursement.</p>
+                  <div *ngIf="isFinanceApproved">
+                    <button type="button" 
+                            class="btn btn-sm btn-primary shadow-sm"
+                            (click)="onToggleAddExpenseForm()">
+                      <i class="bi bi-plus-circle-fill me-1"></i> Add Claim
+                    </button>
+                  </div>
+                  <div *ngIf="!isFinanceApproved" class="text-warning small fw-semibold mt-1">
+                    <i class="bi bi-lock-fill me-1"></i> Awaiting Finance approval to unlock expense claims
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Expenses Pagination -->
+        <app-pagination 
+          [totalItems]="expenses.length" 
+          [pageSize]="expensePageSize" 
+          [currentPage]="expenseCurrentPage" 
+          (pageChange)="expenseCurrentPage = $event" 
+          (pageSizeChange)="expensePageSize = $event; expenseCurrentPage = 1">
+        </app-pagination>
+
+        <!-- Bottom Action: Submit Claim Record as Request for Reimbursement Payout (After Approval by Finance) -->
+        <div class="mt-4 pt-3 border-top reimbursement-claim-box">
+          <!-- Exclusive Assigned Finance Header Pill -->
+          <div class="d-flex flex-wrap align-items-center justify-content-between p-2.5 bg-white rounded-3 border mb-3 small shadow-sm">
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                <i class="bi bi-person-check-fill me-1"></i>Assigned Finance Officer
+              </span>
+              <strong class="text-dark fs-6">{{ getAssignedFinanceName() }}</strong>
+              <span class="text-muted">(Exclusive Reviewer for Reimbursement)</span>
+            </div>
+            <span class="badge bg-light text-secondary border small">
+              <i class="bi bi-shield-lock-fill text-success me-1"></i>Restricted to Assigned Finance
+            </span>
+          </div>
+
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 p-3 bg-light rounded-3 border">
+            <div>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <i class="bi bi-wallet2 text-success fs-5"></i>
+                <h6 class="mb-0 fw-bold text-dark">Trip Reimbursement Claim Record</h6>
+                <span *ngIf="selectedRequest.status === 'APPROVED'" class="badge bg-success-subtle text-success border border-success-subtle small">
+                  <i class="bi bi-check-circle-fill me-1"></i>Trip Approved by Finance
+                </span>
+                <span *ngIf="selectedRequest.status !== 'APPROVED'" class="badge bg-warning-subtle text-warning border border-warning-subtle small">
+                  <i class="bi bi-hourglass-split me-1"></i>Trip {{ formatStatusLabel(selectedRequest.status) }}
+                </span>
+              </div>
+              <div class="small text-muted">
+                <span>Total Claims: <strong>{{ expenses.length }}</strong></span> &bull;
+                <span>Total Amount: <strong class="text-dark">${{ totalExpensesAmount | number:'1.2-2' }}</strong></span> &bull;
+                <span>Reimbursed: <strong class="text-success">${{ totalReimbursedAmount | number:'1.2-2' }}</strong></span>
+                <span *ngIf="pendingReimbursementAmount > 0" class="ms-1">
+                  &bull; Pending Payout: <strong class="text-primary">${{ pendingReimbursementAmount | number:'1.2-2' }}</strong>
+                </span>
+              </div>
+            </div>
+
+            <!-- Submit Reimbursement Button & Status Controls -->
+            <div>
+              <!-- 1. Trip is Approved by Finance AND has unreimbursed expenses -->
+              <div *ngIf="selectedRequest.status === 'APPROVED'">
+                <!-- When viewer is Traveler or Admin: Can submit claim record -->
+                <button *ngIf="canSubmitReimbursement"
+                        type="button" 
+                        class="btn btn-success fw-bold d-inline-flex align-items-center shadow-sm px-3 py-2 btn-submit-reimbursement"
+                        (click)="onSubmitReimbursementClaim()"
+                        [title]="'Submit official claim record exclusively to assigned Finance Officer ' + getAssignedFinanceName()">
+                  <i class="bi bi-send-check-fill me-2 fs-6"></i>
+                  {{ (reimbursementRequested ? 'Re-Submit Claim to ' + getAssignedFinanceName() : 'Submit Claim Record to ' + getAssignedFinanceName()) + ' ($' + (displayReimbursementAmount | number:'1.2-2') + ')' }}
+                </button>
+
+                <!-- When viewer is Assigned Finance and claims are awaiting payout -->
+                <div *ngIf="isAssignedFinance && !isTraveler && !allExpensesReimbursed && expenses.length > 0" class="d-inline-flex align-items-center gap-2">
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fs-6 fw-semibold">
+                    <i class="bi bi-inbox-fill me-1"></i>Assigned to You for Reimbursement Audit
+                  </span>
+                </div>
+
+                <!-- When viewer is NOT traveler, NOT assigned finance, NOT admin -->
+                <div *ngIf="!canSubmitReimbursement && !isAssignedFinance && !allExpensesReimbursed && expenses.length > 0" class="small text-muted">
+                  <i class="bi bi-lock me-1"></i> Assigned exclusively to Finance Officer {{ getAssignedFinanceName() }}
+                </div>
+
+                <!-- When all claims are already fully reimbursed -->
+                <div *ngIf="allExpensesReimbursed" class="d-flex align-items-center text-success fw-semibold small">
+                  <i class="bi bi-check-circle-fill me-1 fs-5"></i> All Claims Fully Reimbursed ($0.00 Remaining)
+                </div>
+
+                <!-- When 0 claims added yet -->
+                <div *ngIf="expenses.length === 0" class="small text-muted">
+                  <i class="bi bi-info-circle me-1"></i> Add expense claims above first to request reimbursement
+                </div>
+              </div>
+
+              <!-- 2. Trip is NOT yet Approved by Finance -->
+              <div *ngIf="selectedRequest.status !== 'APPROVED'" class="d-flex align-items-center gap-2">
+                <button type="button" 
+                        class="btn btn-secondary fw-semibold shadow-sm px-3 py-2 opacity-75"
+                        disabled
+                        title="Trip must receive final approval by Finance before reimbursement can be requested">
+                  <i class="bi bi-lock-fill me-1"></i> Request Reimbursement (Awaiting Trip Finance Approval)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Informative notification message when submitted -->
+          <div *ngIf="reimbursementRequested && selectedRequest.status === 'APPROVED' && !allExpensesReimbursed && expenses.length > 0" 
+               class="alert alert-success py-2.5 px-3 small mt-2 mb-0 border-success-subtle shadow-sm">
+            <div class="d-flex align-items-start gap-2">
+              <i class="bi bi-check-circle-fill text-success fs-5 flex-shrink-0 mt-0.5"></i>
+              <div class="flex-grow-1">
+                <!-- If current user is Traveler or Non-Finance viewer -->
+                <div *ngIf="isTraveler || (!isAssignedFinance && !isAdmin)">
+                  <strong>Reimbursement Request Active:</strong> Claim record of <strong>${{ displayReimbursementAmount | number:'1.2-2' }}</strong> has been submitted exclusively to your assigned Finance Officer <strong>{{ getAssignedFinanceName() }}</strong> for payment payout processing. No other user in the system has access to disburse this payment.
+                </div>
+                <!-- If current user is Assigned Finance Officer -->
+                <div *ngIf="isAssignedFinance && !isTraveler">
+                  <strong>Reimbursement Request Assigned to You:</strong> Traveler <strong>{{ selectedRequest.employeeName }}</strong> has submitted this claim record of <strong>${{ displayReimbursementAmount | number:'1.2-2' }}</strong> exclusively to you for reimbursement payout audit and disbursement.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Guidance alert when trip is pending approval -->
+          <div *ngIf="selectedRequest.status !== 'APPROVED'" 
+               class="alert alert-warning py-2 px-3 small d-flex align-items-center mt-2 mb-0">
+            <i class="bi bi-info-circle-fill text-warning fs-5 me-2"></i>
+            <div>
+              <strong>Reimbursement Notice:</strong> Travel request is currently <strong>{{ formatStatusLabel(selectedRequest.status) }}</strong>. The claim record can be submitted for money reimbursement once the travel request is approved by Finance.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODAL: VIEW BILL PROOF & PAYMENT TRANSACTION PDF SLIP    -->
+<!-- ======================================================== -->
+<div *ngIf="previewingExpense" class="modal-backdrop fade show"></div>
+<div *ngIf="previewingExpense" class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content shadow border-0 rounded-4 overflow-hidden">
+      <div class="modal-header bg-danger text-white py-3 px-4">
+        <h5 class="modal-title fw-bold d-flex align-items-center mb-0">
+          <i class="bi bi-file-earmark-pdf-fill me-2 fs-5"></i>
+          Bill Proof & Payment Transaction Details #{{ previewingExpense.id }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="closePdfPreview()" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <!-- Metadata summary card -->
+        <div class="row g-2 p-3 bg-light rounded-3 border mb-3">
+          <div class="col-sm-4">
+            <span class="text-muted small d-block">Expense Category</span>
+            <strong class="text-dark">{{ previewingExpense.category }}</strong>
+          </div>
+          <div class="col-sm-4">
+            <span class="text-muted small d-block">Claim Amount</span>
+            <strong class="text-success fs-6">${{ previewingExpense.amount | number:'1.2-2' }}</strong>
+          </div>
+          <div class="col-sm-4">
+            <span class="text-muted small d-block">Audit Status</span>
+            <span class="status-badge" [ngClass]="'badge-' + previewingExpense.status.toLowerCase()">
+              {{ formatStatusLabel(previewingExpense.status) }}
+            </span>
+          </div>
+          <div class="col-12 mt-2 pt-2 border-top">
+            <span class="text-muted small d-block">Payment Reason / Company Work Purpose:</span>
+            <div class="fw-semibold text-dark">
+              {{ previewingExpense.paymentReason || previewingExpense.remarks || 'Company official business travel payment' }}
+            </div>
+          </div>
+          <div class="col-12" *ngIf="previewingExpense.remarks && previewingExpense.paymentReason">
+            <span class="text-muted small d-block">Additional Notes:</span>
+            <div class="small text-muted fst-italic">{{ previewingExpense.remarks }}</div>
+          </div>
+        </div>
+
+        <!-- Embedded PDF Viewer or Document Card -->
+        <div class="border rounded-3 p-3 bg-white text-center">
+          <div *ngIf="safePdfUrl" class="mb-3 border rounded overflow-hidden" style="min-height: 380px;">
+            <iframe [src]="safePdfUrl" width="100%" height="380" style="border: none;" title="Bill Proof PDF"></iframe>
+          </div>
+
+          <div class="p-3 bg-light rounded border text-center">
+            <i class="bi bi-file-earmark-pdf-fill text-danger fs-1 d-block mb-1"></i>
+            <h6 class="fw-bold text-dark mb-1">
+              {{ previewingExpense.receiptFileName || 'Bill_Payment_Proof.pdf' }}
+            </h6>
+            <p class="text-muted small mb-3" style="max-width: 520px; margin: 0 auto;">
+              Official corporate bill, payment transaction slip, and tax invoice verified for Finance reimbursement audit.
+            </p>
+            <button type="button" 
+                    class="btn btn-sm btn-danger px-3 fw-semibold shadow-sm"
+                    (click)="downloadOrOpenPdf(previewingExpense)">
+              <i class="bi bi-download me-1"></i> Download / Open Bill Proof (PDF)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer bg-light px-4 py-2.5">
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closePdfPreview()">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Itinerary Segment PDF Proof Preview Modal -->
+<div *ngIf="previewingSegment" class="modal-backdrop fade show"></div>
+<div *ngIf="previewingSegment" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-header bg-dark text-white py-2.5 px-4">
+        <h6 class="modal-title fw-bold d-flex align-items-center mb-0">
+          <i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i>
+          Ticket / Booking Proof: {{ previewingSegment.title }}
+        </h6>
+        <button type="button" class="btn-close btn-close-white" (click)="closeSegmentPdfPreview()"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded border">
+          <div>
+            <span class="fw-semibold text-dark small">{{ previewingSegment.proofFileName || 'Booking_Proof.pdf' }}</span>
+            <span class="badge bg-secondary ms-2">{{ previewingSegment.segmentType }}</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" (click)="downloadOrOpenSegmentPdf(previewingSegment)">
+            <i class="bi bi-download me-1"></i> Download / Open in New Tab
+          </button>
+        </div>
+        <div *ngIf="safeSegmentPdfUrl" class="border rounded overflow-hidden" style="height: 480px;">
+          <iframe [src]="safeSegmentPdfUrl" width="100%" height="100%" style="border: none;" title="Booking Proof PDF"></iframe>
+        </div>
+        <div *ngIf="!safeSegmentPdfUrl" class="text-center py-5 text-muted bg-light rounded border">
+          <i class="bi bi-file-earmark-pdf fs-1 text-danger d-block mb-2"></i>
+          <p class="mb-1 fw-semibold text-dark">Document Proof Attached</p>
+          <p class="small text-muted mb-3">{{ previewingSegment.proofFileName || previewingSegment.proofFileUrl }}</p>
+          <button type="button" class="btn btn-primary btn-sm" (click)="downloadOrOpenSegmentPdf(previewingSegment)">
+            <i class="bi bi-box-arrow-up-right me-1"></i> Open Document in New Window
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer py-2 px-3 bg-light">
+        <button type="button" class="btn btn-sm btn-secondary" (click)="closeSegmentPdfPreview()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,63 @@
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 py-2 px-3 bg-light rounded-bottom border-top pagination-container" *ngIf="totalItems > 0">
+  <!-- Showing Range Information -->
+  <div class="text-muted small d-flex flex-wrap align-items-center gap-2">
+    <span>
+      Showing <strong class="text-dark">{{ startEntry }}</strong> to <strong class="text-dark">{{ endEntry }}</strong> of <strong class="text-dark">{{ totalItems }}</strong> entries
+    </span>
+    <div *ngIf="showPageSizeSelector" class="d-inline-flex align-items-center gap-1 ms-sm-2">
+      <span class="text-muted small">| Show</span>
+      <select class="form-select form-select-sm py-0 px-2 page-size-select" [value]="pageSize" (change)="onPageSizeChange($event)">
+        <option *ngFor="let opt of pageSizeOptions" [value]="opt">{{ opt }}</option>
+      </select>
+      <span class="text-muted small">per page</span>
+    </div>
+  </div>
+
+  <!-- Pagination Buttons Controls -->
+  <nav aria-label="Page navigation" *ngIf="totalPages > 1">
+    <ul class="pagination pagination-sm mb-0 align-items-center">
+      <!-- Previous Button -->
+      <li class="page-item" [class.disabled]="currentPage === 1">
+        <button type="button" 
+                class="page-link px-2.5 prev-btn" 
+                (click)="onPageChange(currentPage - 1)" 
+                [disabled]="currentPage === 1" 
+                aria-label="Previous">
+          <i class="bi bi-chevron-left me-1"></i> Prev
+        </button>
+      </li>
+      
+      <!-- First page shortcut if far -->
+      <li *ngIf="pages[0] > 1" class="page-item" [class.active]="currentPage === 1">
+        <button type="button" class="page-link" (click)="onPageChange(1)">1</button>
+      </li>
+      <li *ngIf="pages[0] > 2" class="page-item disabled">
+        <span class="page-link text-muted px-1">&hellip;</span>
+      </li>
+
+      <!-- Active Window Pages -->
+      <li *ngFor="let p of pages" class="page-item" [class.active]="currentPage === p">
+        <button type="button" class="page-link" (click)="onPageChange(p)">{{ p }}</button>
+      </li>
+
+      <!-- Last page shortcut if far -->
+      <li *ngIf="pages[pages.length - 1] < totalPages - 1" class="page-item disabled">
+        <span class="page-link text-muted px-1">&hellip;</span>
+      </li>
+      <li *ngIf="pages[pages.length - 1] < totalPages" class="page-item" [class.active]="currentPage === totalPages">
+        <button type="button" class="page-link" (click)="onPageChange(totalPages)">{{ totalPages }}</button>
+      </li>
+
+      <!-- Next Button -->
+      <li class="page-item" [class.disabled]="currentPage === totalPages">
+        <button type="button" 
+                class="page-link px-2.5 next-btn" 
+                (click)="onPageChange(currentPage + 1)" 
+                [disabled]="currentPage === totalPages" 
+                aria-label="Next">
+          Next <i class="bi bi-chevron-right ms-1"></i>
+        </button>
+      </li>
+    </ul>
+  </nav>
+</div>

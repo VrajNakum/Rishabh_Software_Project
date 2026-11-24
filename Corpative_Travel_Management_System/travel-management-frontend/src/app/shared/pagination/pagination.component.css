@@ -1,0 +1,38 @@
+.pagination-container {
+  font-size: 0.825rem;
+  background-color: #f8fafc !important;
+}
+
+.page-size-select {
+  width: auto;
+  min-width: 58px;
+  height: 26px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  border-color: #cbd5e1;
+}
+
+.pagination .page-item .page-link {
+  color: #334155;
+  border-color: #cbd5e1;
+  font-weight: 500;
+  transition: all 0.15s ease-in-out;
+}
+
+.pagination .page-item:not(.disabled) .page-link:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.pagination .page-item.active .page-link {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.pagination .page-item.disabled .page-link {
+  color: #94a3b8;
+  background-color: #f1f5f9;
+  cursor: not-allowed;
+}

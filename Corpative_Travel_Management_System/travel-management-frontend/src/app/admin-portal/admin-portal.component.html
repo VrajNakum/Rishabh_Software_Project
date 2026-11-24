@@ -1,0 +1,858 @@
+<div class="admin-portal-container">
+
+  <!-- Top Hero / Administration Banner -->
+  <div class="rs-card p-4 mb-4 border-start border-4 border-warning shadow-sm bg-white">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div class="d-flex align-items-center gap-3">
+        <div class="admin-shield-icon">
+          <i class="bi bi-shield-lock-fill text-warning"></i>
+        </div>
+        <div>
+          <div class="d-flex align-items-center gap-2">
+            <h4 class="fw-bold mb-0 text-dark">Admin Portal & Access Control</h4>
+            <span class="badge bg-warning text-dark fw-semibold px-2 py-1">
+              <i class="bi bi-shield-check me-1"></i> System Administration
+            </span>
+          </div>
+          <p class="text-muted small mb-0 mt-1">
+            Provision user accounts as <strong>Employee</strong>, <strong>Manager</strong>, or <strong>Finance Officer</strong>, manage department assignments, and configure corporate travel budget policies.
+          </p>
+        </div>
+      </div>
+
+      <!-- Main Action Buttons -->
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <button type="button" 
+                class="btn btn-primary fw-semibold shadow-sm px-3 py-2 btn-add-user" 
+                (click)="openAddUserModal()">
+          <i class="bi bi-person-plus-fill me-2 fs-6"></i> Add New User
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Role Overview Metrics Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+      <div class="rs-card p-3 h-100 metric-card border-top border-3 border-primary">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small fw-semibold text-uppercase">Total Users</div>
+            <div class="fs-3 fw-bold text-dark mt-1">{{ users.length }}</div>
+          </div>
+          <div class="metric-icon-box bg-primary-subtle text-primary">
+            <i class="bi bi-people-fill fs-4"></i>
+          </div>
+        </div>
+        <div class="small text-muted mt-2">Active corporate accounts</div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+      <div class="rs-card p-3 h-100 metric-card border-top border-3 border-info">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small fw-semibold text-uppercase">Employees</div>
+            <div class="fs-3 fw-bold text-info-emphasis mt-1">{{ countEmployees }}</div>
+          </div>
+          <div class="metric-icon-box bg-info-subtle text-info-emphasis">
+            <i class="bi bi-person-badge fs-4"></i>
+          </div>
+        </div>
+        <div class="small text-muted mt-2 d-flex justify-content-between align-items-center">
+          <span>Travel requesters</span>
+          <button class="btn btn-link btn-sm p-0 text-decoration-none" (click)="openAddUserModal(Role.EMPLOYEE)">+ Add</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+      <div class="rs-card p-3 h-100 metric-card border-top border-3 border-success">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small fw-semibold text-uppercase">Managers</div>
+            <div class="fs-3 fw-bold text-success mt-1">{{ countManagers }}</div>
+          </div>
+          <div class="metric-icon-box bg-success-subtle text-success">
+            <i class="bi bi-person-check-fill fs-4"></i>
+          </div>
+        </div>
+        <div class="small text-muted mt-2 d-flex justify-content-between align-items-center">
+          <span>Approving supervisors</span>
+          <button class="btn btn-link btn-sm p-0 text-decoration-none" (click)="openAddUserModal(Role.MANAGER)">+ Add</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+      <div class="rs-card p-3 h-100 metric-card border-top border-3 border-danger">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small fw-semibold text-uppercase">Finance Officers</div>
+            <div class="fs-3 fw-bold text-danger mt-1">{{ countFinance }}</div>
+          </div>
+          <div class="metric-icon-box bg-danger-subtle text-danger">
+            <i class="bi bi-cash-coin fs-4"></i>
+          </div>
+        </div>
+        <div class="small text-muted mt-2 d-flex justify-content-between align-items-center">
+          <span>Audit & reimbursements</span>
+          <button class="btn btn-link btn-sm p-0 text-decoration-none" (click)="openAddUserModal(Role.FINANCE)">+ Add</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Directory & Management Section -->
+  <div class="rs-card p-4 mb-4 shadow-sm bg-white">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+      <div>
+        <h5 class="fw-bold mb-0">
+          <i class="bi bi-person-lines-fill text-primary me-2"></i> Corporate User Directory
+        </h5>
+        <small class="text-muted">Manage corporate users, roles, and managerial hierarchy</small>
+      </div>
+
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <!-- Search Input -->
+        <div class="input-group input-group-sm user-search-group">
+          <span class="input-group-text bg-white border-end-0 text-muted">
+            <i class="bi bi-search"></i>
+          </span>
+          <input type="text" 
+                 class="form-control border-start-0" 
+                 placeholder="Search by name, email, department..." 
+                 [(ngModel)]="searchQuery">
+          <button *ngIf="searchQuery" 
+                  class="btn btn-outline-secondary border-start-0" 
+                  type="button" 
+                  (click)="searchQuery = ''">
+            <i class="bi bi-x"></i>
+          </button>
+        </div>
+
+        <!-- Add User Button (Secondary trigger) -->
+        <button type="button" class="btn btn-sm btn-primary" (click)="openAddUserModal()">
+          <i class="bi bi-plus-circle me-1"></i> Add New User
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Pills by Role -->
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <button type="button" 
+              class="btn btn-sm"
+              [ngClass]="selectedRoleFilter === 'ALL' ? 'btn-dark' : 'btn-outline-secondary'"
+              (click)="selectedRoleFilter = 'ALL'">
+        All Roles <span class="badge bg-secondary ms-1 rounded-pill">{{ users.length }}</span>
+      </button>
+      <button type="button" 
+              class="btn btn-sm"
+              [ngClass]="selectedRoleFilter === Role.EMPLOYEE ? 'btn-primary' : 'btn-outline-primary'"
+              (click)="selectedRoleFilter = Role.EMPLOYEE">
+        <i class="bi bi-person-badge me-1"></i> Employees
+        <span class="badge bg-light text-primary ms-1 rounded-pill">{{ countEmployees }}</span>
+      </button>
+      <button type="button" 
+              class="btn btn-sm"
+              [ngClass]="selectedRoleFilter === Role.MANAGER ? 'btn-info text-white' : 'btn-outline-info'"
+              (click)="selectedRoleFilter = Role.MANAGER">
+        <i class="bi bi-person-check-fill me-1"></i> Managers
+        <span class="badge bg-light text-dark ms-1 rounded-pill">{{ countManagers }}</span>
+      </button>
+      <button type="button" 
+              class="btn btn-sm"
+              [ngClass]="selectedRoleFilter === Role.FINANCE ? 'btn-success' : 'btn-outline-success'"
+              (click)="selectedRoleFilter = Role.FINANCE">
+        <i class="bi bi-cash-coin me-1"></i> Finance Officers
+        <span class="badge bg-light text-success ms-1 rounded-pill">{{ countFinance }}</span>
+      </button>
+      <button type="button" 
+              class="btn btn-sm"
+              [ngClass]="selectedRoleFilter === Role.ADMIN ? 'btn-warning text-dark' : 'btn-outline-warning text-dark'"
+              (click)="selectedRoleFilter = Role.ADMIN">
+        <i class="bi bi-shield-lock me-1"></i> Admins
+        <span class="badge bg-dark text-white ms-1 rounded-pill">{{ countAdmins }}</span>
+      </button>
+    </div>
+
+    <!-- User Table -->
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 user-directory-table">
+        <thead class="table-light small text-uppercase">
+          <tr>
+            <th style="width: 80px;">ID</th>
+            <th>Name & Email</th>
+            <th>Access Role</th>
+            <th>Department</th>
+            <th>Assigned Manager</th>
+            <th>Assigned FINANCE</th>
+            <th class="text-end" style="width: 170px;">Session Access</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of paginatedUsers" [class.table-active]="u.id === currentUser.id">
+            <td>
+              <span class="fw-bold text-muted">#{{ u.id }}</span>
+            </td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="user-avatar" [ngClass]="'avatar-' + u.role.toLowerCase()">
+                  {{ u.fullName.charAt(0).toUpperCase() }}
+                </div>
+                <div>
+                  <div class="fw-semibold text-dark d-flex align-items-center gap-1">
+                    {{ u.fullName }}
+                    <span *ngIf="u.id === currentUser.id" class="badge bg-primary-subtle text-primary small" style="font-size: 0.65rem;">
+                      Current
+                    </span>
+                  </div>
+                  <div class="text-muted small">
+                    {{ u.email }}
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span *ngIf="u.role === Role.EMPLOYEE" class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                <i class="bi bi-person-badge me-1"></i> Employee
+              </span>
+              <span *ngIf="u.role === Role.MANAGER" class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-1">
+                <i class="bi bi-person-check-fill me-1"></i> Manager
+              </span>
+              <span *ngIf="u.role === Role.FINANCE" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                <i class="bi bi-cash-coin me-1"></i> Finance Officer
+              </span>
+              <span *ngIf="u.role === Role.ADMIN" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
+                <i class="bi bi-shield-lock-fill me-1"></i> Administrator
+              </span>
+            </td>
+            <td>
+              <span class="badge bg-light text-dark border">{{ u.departmentName || 'General' }}</span>
+            </td>
+            <td>
+              <div class="d-flex align-items-center justify-content-between">
+                <div>
+                  <span class="text-dark small">
+                    <i class="bi bi-person-up text-muted me-1"></i> {{ getUserManagerName(u) }}
+                  </span>
+                </div>
+                <button type="button" 
+                        class="btn btn-sm btn-outline-primary py-0 px-1 ms-2"
+                        style="font-size: 0.75rem; border-radius: 4px;"
+                        (click)="openReassignModal(u, 'MANAGER')"
+                        title="Change Assigned Manager for {{ u.fullName }}">
+                  <i class="bi bi-pencil-square"></i>
+                </button>
+              </div>
+            </td>
+            <td>
+              <div class="d-flex align-items-center justify-content-between">
+                <div>
+                  <span class="text-dark small d-flex align-items-center">
+                    <i class="bi bi-cash-coin text-success me-1"></i> {{ getUserFinanceName(u) }}
+                  </span>
+                </div>
+                <button type="button" 
+                        class="btn btn-sm btn-outline-success py-0 px-1 ms-2"
+                        style="font-size: 0.75rem; border-radius: 4px;"
+                        (click)="openReassignModal(u, 'FINANCE')"
+                        title="Change Assigned Finance Officer for {{ u.fullName }}">
+                  <i class="bi bi-pencil-square"></i>
+                </button>
+              </div>
+            </td>
+            <td class="text-end">
+              <div class="d-flex align-items-center justify-content-end gap-1">
+                <!-- Remove User Button -->
+                <button *ngIf="u.id !== currentUser.id" 
+                        type="button" 
+                        class="btn btn-sm btn-outline-danger"
+                        (click)="promptDeleteUser(u)"
+                        title="Remove {{ u.fullName }} from directory">
+                  <i class="bi bi-trash3 me-1"></i>
+                  Remove
+                </button>
+
+                <!-- Active Indicator for Current User -->
+                <span *ngIf="u.id === currentUser.id" class="badge bg-success-subtle text-success py-1 px-2 small">
+                  <i class="bi bi-check2-circle me-1"></i> Active Admin
+                </span>
+              </div>
+            </td>
+          </tr>
+
+          <tr *ngIf="filteredUsers.length === 0">
+            <td colspan="7" class="text-center py-4 text-muted">
+              <i class="bi bi-person-x fs-3 d-block mb-2 text-warning"></i>
+              No users found matching your search or filter.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- User Directory Pagination -->
+    <app-pagination 
+      [totalItems]="filteredUsers.length" 
+      [pageSize]="userPageSize" 
+      [currentPage]="userCurrentPage" 
+      (pageChange)="userCurrentPage = $event" 
+      (pageSizeChange)="userPageSize = $event; userCurrentPage = 1">
+    </app-pagination>
+  </div>
+
+  <!-- Travel Request & Est. Budget Management Section -->
+  <div class="rs-card p-4 shadow-sm bg-white">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+      <div>
+        <h5 class="fw-bold mb-0">
+          <i class="bi bi-currency-dollar text-success me-2"></i> Est. Budget Administration & Operations
+        </h5>
+        <small class="text-muted">Oversee and update Estimated Budgets across all submitted travel requests</small>
+      </div>
+      <span class="badge bg-light text-dark border">
+        Total Requests: {{ requests.length }}
+      </span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light small text-uppercase">
+          <tr>
+            <th>ID</th>
+            <th>Traveler</th>
+            <th>Destination</th>
+            <th>Dates</th>
+            <th>Est. Budget</th>
+            <th>Status</th>
+            <th>Policy Status</th>
+            <th class="text-end">Admin Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let req of paginatedRequests">
+            <td><strong>#{{ req.id }}</strong></td>
+            <td>
+              <div class="fw-semibold">{{ req.employeeName }}</div>
+              <div class="text-muted small">{{ req.departmentName }}</div>
+            </td>
+            <td>{{ req.destination }}</td>
+            <td class="small">{{ req.startDate }} to {{ req.endDate }}</td>
+            <td>
+              <strong class="text-primary">${{ req.estimatedBudget | number:'1.2-2' }}</strong>
+            </td>
+            <td>
+              <span class="status-badge" [ngClass]="'badge-' + req.status.toLowerCase().replace('_', '-')">
+                {{ formatStatusLabel(req.status) }}
+              </span>
+            </td>
+            <td>
+              <span *ngIf="req.policyViolated" class="badge bg-danger-subtle text-danger" title="{{ req.policyViolationReason }}">
+                <i class="bi bi-exclamation-triangle"></i> Exceeded
+              </span>
+              <span *ngIf="!req.policyViolated" class="badge bg-success-subtle text-success">
+                <i class="bi bi-shield-check"></i> Compliant
+              </span>
+            </td>
+            <td class="text-end">
+              <div class="d-flex align-items-center justify-content-end gap-1">
+                <!-- Trip Details Button -->
+                <button type="button" 
+                        class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 shadow-sm"
+                        (click)="onViewTripDetails(req)"
+                        title="View Trip Details, Itinerary & Expenses for Request #{{ req.id }}">
+                  <i class="bi bi-journal-text"></i>
+                  <span>Details</span>
+                </button>
+
+                <!-- Edit Budget Button -->
+                <button type="button" 
+                        class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1 shadow-sm"
+                        (click)="openEditBudgetModal(req)"
+                        title="Update Estimated Budget for Request #{{ req.id }}">
+                  <i class="bi bi-pencil-square"></i>
+                  <span>Budget</span>
+                </button>
+
+                <!-- Delete Request Button -->
+                <button type="button" 
+                        class="btn btn-sm btn-outline-danger"
+                        (click)="onDeleteRequest(req)"
+                        title="Delete Request #{{ req.id }}">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="requests.length === 0">
+            <td colspan="8" class="text-center py-4 text-muted">
+              No travel requests available in the database.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Requests Oversight Pagination -->
+    <app-pagination 
+      [totalItems]="requests.length" 
+      [pageSize]="requestPageSize" 
+      [currentPage]="requestCurrentPage" 
+      (pageChange)="requestCurrentPage = $event" 
+      (pageSizeChange)="requestPageSize = $event; requestCurrentPage = 1">
+    </app-pagination>
+  </div>
+
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL: ADD NEW USER (Employee / Manager / Finance) -->
+<!-- ========================================== -->
+<div *ngIf="showAddUserModal" class="modal-backdrop fade show"></div>
+<div *ngIf="showAddUserModal" class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content shadow border-0">
+      <div class="modal-header bg-primary text-white py-3">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-person-plus-fill me-2"></i> Add New User
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="closeAddUserModal()" aria-label="Close" [disabled]="isSavingUser"></button>
+      </div>
+
+      <form (ngSubmit)="submitAddUser()">
+        <div class="modal-body p-4">
+
+          <div *ngIf="formError" class="alert alert-danger py-2 px-3 small mb-3 border-danger">
+            <i class="bi bi-exclamation-octagon-fill me-2"></i> {{ formError }}
+          </div>
+
+          <!-- Role Selection Cards -->
+          <div class="mb-4">
+            <label class="form-label fw-bold text-dark mb-2">
+              Select User Role & Permissions <span class="text-danger">*</span>
+            </label>
+            <div class="row g-2">
+              <div *ngFor="let roleOpt of selectableRoles" class="col-md-4">
+                <div class="role-selector-card p-3 border rounded h-100 cursor-pointer"
+                     [class.selected-role-card]="newUser.role === roleOpt.role"
+                     (click)="onRoleChange(roleOpt.role)">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="role-icon-pill" [ngClass]="'pill-' + roleOpt.role.toLowerCase()">
+                      <i class="bi" [ngClass]="roleOpt.icon"></i>
+                    </span>
+                    <input type="radio" 
+                           name="selectedRole" 
+                           [value]="roleOpt.role" 
+                           [checked]="newUser.role === roleOpt.role"
+                           (change)="onRoleChange(roleOpt.role)"
+                           class="form-check-input mt-0">
+                  </div>
+                  <h6 class="fw-bold mb-1 text-dark">{{ roleOpt.label }}</h6>
+                  <p class="text-muted small mb-0 lh-sm" style="font-size: 0.78rem;">
+                    {{ roleOpt.description }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- User Details Form Fields -->
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold text-dark">
+                Full Name <span class="text-danger">*</span>
+              </label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
+                <input type="text" 
+                       class="form-control" 
+                       [(ngModel)]="newUser.fullName" 
+                       name="fullName" 
+                       placeholder="e.g. Sarah Connor" 
+                       required>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold text-dark">
+                Corporate Email Address <span class="text-danger">*</span>
+              </label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-envelope"></i></span>
+                <input type="email" 
+                       class="form-control" 
+                       [(ngModel)]="newUser.email" 
+                       name="email" 
+                       placeholder="e.g. sarah.connor@company.com" 
+                       required>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold text-dark">
+                Login Password <span class="text-danger">*</span>
+              </label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-key-fill text-muted"></i></span>
+                <input [type]="showNewUserPassword ? 'text' : 'password'" 
+                       class="form-control border-end-0" 
+                       [(ngModel)]="newUser.password" 
+                       name="password" 
+                       placeholder="Set login password (min 4 chars)" 
+                       required>
+                <button type="button" 
+                        class="btn btn-outline-secondary border-start-0 bg-light text-muted"
+                        (click)="showNewUserPassword = !showNewUserPassword"
+                        [title]="showNewUserPassword ? 'Hide password' : 'Show password'">
+                  <i class="bi" [ngClass]="showNewUserPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
+                </button>
+              </div>
+              <div class="form-text small" style="font-size: 0.75rem;">
+                Required for the user to sign in to the Corporate Travel Desk.
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold text-dark">
+                Department <span class="text-danger">*</span>
+              </label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-building text-muted"></i></span>
+                <select class="form-select" [(ngModel)]="newUser.departmentName" name="departmentName" required>
+                  <option *ngFor="let dept of commonDepartments" [value]="dept">{{ dept }}</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Assigned Manager (Available when Role is EMPLOYEE) -->
+            <div class="col-md-6" *ngIf="newUser.role === Role.EMPLOYEE">
+              <label class="form-label small fw-semibold text-dark">
+                Reporting Manager
+              </label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-person-up text-muted"></i></span>
+                <select class="form-select" [(ngModel)]="newUser.managerId" name="managerId">
+                  <option [ngValue]="null">-- Default: {{ defaultManagerName }} (user1manager) --</option>
+                  <option *ngFor="let mgr of managers" [ngValue]="mgr.id">
+                    {{ mgr.fullName }} ({{ mgr.departmentName }})
+                  </option>
+                </select>
+              </div>
+              <div class="form-text small" style="font-size: 0.75rem;">
+                Requests submitted by this employee route to this manager for approval (defaults to {{ defaultManagerName }}).
+              </div>
+            </div>
+
+            <!-- Assigned Finance Officer (Available when Role is not FINANCE) -->
+            <div class="col-md-6" *ngIf="newUser.role !== Role.FINANCE">
+              <label class="form-label small fw-semibold text-dark">
+                Assigned FINANCE Officer
+              </label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-cash-coin text-success"></i></span>
+                <select class="form-select" [(ngModel)]="newUser.financeId" name="financeId">
+                  <option [ngValue]="null">-- Default: {{ defaultFinanceName }} (user1finance) --</option>
+                  <option *ngFor="let fin of financeOfficers" [ngValue]="fin.id">
+                    {{ fin.fullName }} ({{ fin.departmentName }})
+                  </option>
+                </select>
+              </div>
+              <div class="form-text small" style="font-size: 0.75rem;">
+                Expense audit and reimbursement processing route to this Finance officer (defaults to {{ defaultFinanceName }}).
+              </div>
+            </div>
+
+            <div class="col-md-12" *ngIf="newUser.role === Role.EMPLOYEE">
+              <div class="p-2.5 bg-light rounded border d-flex align-items-center">
+                <small class="text-muted">
+                  <i class="bi bi-shield-check me-1 text-success"></i>
+                  Account credentials will be active immediately. The employee can sign in using this email and password.
+                </small>
+              </div>
+            </div>
+
+            <div class="col-md-12" *ngIf="newUser.role === Role.MANAGER">
+              <div class="p-2.5 bg-light rounded border d-flex align-items-center">
+                <small class="text-muted">
+                  <i class="bi bi-info-circle me-1 text-primary"></i>
+                  Managers supervise team members, authorize travel requests, and approve departmental travel budgets.
+                </small>
+              </div>
+            </div>
+
+            <div class="col-md-12" *ngIf="newUser.role === Role.FINANCE">
+              <div class="p-3 bg-light rounded border h-100 d-flex align-items-center">
+                <small class="text-muted">
+                  <i class="bi bi-info-circle me-1 text-success"></i>
+                  Finance officers perform company-wide travel budget auditing and disburse reimbursement claims.
+                </small>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer bg-light px-4 py-3">
+          <button type="button" 
+                  class="btn btn-outline-secondary" 
+                  (click)="closeAddUserModal()">
+            Cancel
+          </button>
+          <button type="submit" 
+                  class="btn btn-primary px-4 fw-semibold">
+            <i class="bi bi-check-lg me-1"></i>
+            Add New User
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL: UPDATE EST. BUDGET (Admin Override)  -->
+<!-- ========================================== -->
+<div *ngIf="editingBudgetRequest" class="modal-backdrop fade show"></div>
+<div *ngIf="editingBudgetRequest" class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow border-0">
+      <div class="modal-header bg-dark text-white py-3">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-pencil-square text-warning me-2"></i> Update Est. Budget #{{ editingBudgetRequest.id }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="closeEditBudgetModal()" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <div class="mb-3 p-3 bg-light rounded border">
+          <div class="d-flex justify-content-between mb-1">
+            <span class="text-muted small">Traveler:</span>
+            <span class="fw-semibold text-dark">{{ editingBudgetRequest.employeeName }}</span>
+          </div>
+          <div class="d-flex justify-content-between mb-1">
+            <span class="text-muted small">Destination:</span>
+            <span class="fw-semibold text-dark">{{ editingBudgetRequest.destination }}</span>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span class="text-muted small">Current Est. Budget:</span>
+            <span class="fw-bold text-primary">${{ editingBudgetRequest.estimatedBudget | number:'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold text-dark">New Estimated Budget ($)</label>
+          <div class="input-group">
+            <span class="input-group-text bg-light">$</span>
+            <input type="number" 
+                   class="form-control form-control-lg" 
+                   [(ngModel)]="updatedBudgetValue" 
+                   name="updatedBudget" 
+                   min="1" 
+                   step="50"
+                   required>
+          </div>
+          <div class="form-text text-muted small mt-1">
+            Updating the budget will re-verify corporate departmental policy limits.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer bg-light px-4 py-3">
+        <button type="button" class="btn btn-outline-secondary" (click)="closeEditBudgetModal()">Cancel</button>
+        <button type="button" class="btn btn-primary px-3 fw-semibold" (click)="confirmUpdateBudget()">
+          <i class="bi bi-check-lg me-1"></i>
+          Save Updated Budget
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL: CONFIRM REMOVE USER -->
+<!-- ========================================== -->
+<div *ngIf="userToDelete" class="modal-backdrop fade show"></div>
+<div *ngIf="userToDelete" class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow border-0">
+      <div class="modal-header bg-danger text-white py-3">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-person-x-fill me-2"></i> Remove Corporate User
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="cancelDeleteUser()" aria-label="Close" [disabled]="isDeletingUser"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <div class="text-center mb-3">
+          <div class="mx-auto mb-2 d-flex align-items-center justify-content-center bg-danger-subtle text-danger rounded-circle" style="width: 56px; height: 56px; font-size: 1.6rem;">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+          </div>
+          <h5 class="fw-bold text-dark mb-1">Remove User Account?</h5>
+          <p class="text-muted small mb-0">
+            Are you sure you want to permanently remove this user from the system?
+          </p>
+        </div>
+
+        <div class="p-3 bg-light rounded border mb-3">
+          <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+            <span class="text-muted small">Full Name:</span>
+            <span class="fw-bold text-dark">{{ userToDelete.fullName }}</span>
+          </div>
+          <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+            <span class="text-muted small">Corporate Email:</span>
+            <span class="text-dark small">{{ userToDelete.email }}</span>
+          </div>
+          <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+            <span class="text-muted small">Role:</span>
+            <span class="badge" [ngClass]="getRoleBadgeClass(userToDelete.role)">{{ userToDelete.role }}</span>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span class="text-muted small">Department:</span>
+            <span class="fw-semibold text-dark small">{{ userToDelete.departmentName || 'General' }}</span>
+          </div>
+        </div>
+
+        <div class="alert alert-warning py-2 px-3 small mb-0 d-flex align-items-center">
+          <i class="bi bi-exclamation-triangle-fill text-warning fs-5 me-2 flex-shrink-0"></i>
+          <div>
+            This user will lose system access immediately and will no longer appear in employee dropdowns or approval workflows.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer bg-light px-4 py-3">
+        <button type="button" 
+                class="btn btn-outline-secondary" 
+                (click)="cancelDeleteUser()">
+          Cancel
+        </button>
+        <button type="button" 
+                class="btn btn-danger px-4 fw-semibold" 
+                (click)="confirmDeleteUser()">
+          <i class="bi bi-trash3 me-1"></i>
+          Yes, Remove User
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL: REASSIGN MANAGER OR FINANCE OFFICER  -->
+<!-- ========================================== -->
+<div *ngIf="showReassignModal && reassigningUser" class="modal-backdrop fade show"></div>
+<div *ngIf="showReassignModal && reassigningUser" class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow border-0">
+      <div class="modal-header bg-dark text-white py-3">
+        <h5 class="modal-title fw-bold d-flex align-items-center">
+          <i class="bi me-2" [ngClass]="reassignType === 'MANAGER' ? 'bi-person-check-fill text-primary' : 'bi-cash-coin text-success'"></i>
+          {{ reassignType === 'MANAGER' ? 'Reassign Reporting Manager' : 'Reassign Finance Officer' }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="closeReassignModal()" aria-label="Close" [disabled]="isSavingAssignments"></button>
+      </div>
+
+      <form (ngSubmit)="saveUserAssignments()">
+        <div class="modal-body p-4">
+          <div *ngIf="reassignError" class="alert alert-danger py-2 px-3 small mb-3 border-danger">
+            <i class="bi bi-exclamation-octagon-fill me-2"></i> {{ reassignError }}
+          </div>
+
+          <!-- Target User Profile Card -->
+          <div class="p-3 bg-light rounded border mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <div class="d-flex align-items-center gap-2">
+                <div class="user-avatar" [ngClass]="'avatar-' + reassigningUser.role.toLowerCase()" style="width: 38px; height: 38px; font-size: 1rem;">
+                  {{ reassigningUser.fullName.charAt(0).toUpperCase() }}
+                </div>
+                <div>
+                  <div class="fw-bold text-dark">{{ reassigningUser.fullName }}</div>
+                  <div class="text-muted small">{{ reassigningUser.email }}</div>
+                </div>
+              </div>
+              <span class="badge" [ngClass]="getRoleBadgeClass(reassigningUser.role)">
+                {{ reassigningUser.role }}
+              </span>
+            </div>
+            <div class="small text-muted border-top pt-2 mt-1">
+              <i class="bi bi-building me-1"></i> Department: <strong class="text-dark">{{ reassigningUser.departmentName || 'General' }}</strong>
+            </div>
+          </div>
+
+          <!-- Reassign Manager Field ONLY -->
+          <div *ngIf="reassignType === 'MANAGER'">
+            <div class="mb-3">
+              <label class="form-label small fw-semibold text-dark">
+                <i class="bi bi-person-check-fill text-info-emphasis me-1"></i> Assigned Reporting Manager
+              </label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-person-up text-muted"></i></span>
+                <select class="form-select" [(ngModel)]="selectedManagerId" name="assignedManager">
+                  <option [ngValue]="null">-- None / Unassigned --</option>
+                  <option *ngFor="let mgr of eligibleManagers" [ngValue]="mgr.id">
+                    {{ mgr.fullName }} ({{ mgr.departmentName }})
+                  </option>
+                </select>
+              </div>
+              <div class="form-text small" style="font-size: 0.75rem;">
+                Travel requests submitted by this employee will route to this Manager for approval.
+              </div>
+            </div>
+
+            <div class="alert alert-info py-2 px-3 small mb-0 d-flex align-items-center">
+              <i class="bi bi-info-circle-fill text-primary fs-5 me-2 flex-shrink-0"></i>
+              <div>
+                Departments may have multiple managers. Selecting this manager immediately updates approval routing for this employee.
+              </div>
+            </div>
+          </div>
+
+          <!-- Reassign Finance Officer Field ONLY -->
+          <div *ngIf="reassignType === 'FINANCE'">
+            <div class="mb-3">
+              <label class="form-label small fw-semibold text-dark">
+                <i class="bi bi-cash-coin text-success me-1"></i> Assigned FINANCE Officer
+              </label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-cash-coin text-success"></i></span>
+                <select class="form-select" [(ngModel)]="selectedFinanceId" name="assignedFinance">
+                  <option [ngValue]="null">
+                    {{ reassigningUser.role === Role.FINANCE ? '-- Self (Finance Officer) / None --' : '-- None / Unassigned --' }}
+                  </option>
+                  <option *ngFor="let fin of eligibleFinanceOfficers" [ngValue]="fin.id">
+                    {{ fin.fullName }} ({{ fin.departmentName }})
+                  </option>
+                </select>
+              </div>
+              <div class="form-text small" style="font-size: 0.75rem;">
+                Expense audits and reimbursements for this user will route to this Finance Officer.
+              </div>
+            </div>
+
+            <div class="alert alert-success py-2 px-3 small mb-0 d-flex align-items-center">
+              <i class="bi bi-shield-check text-success fs-5 me-2 flex-shrink-0"></i>
+              <div>
+                Departments may have multiple finance officers. Assigning this officer directs all disbursement and audit workflows directly to them.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer bg-light px-4 py-3">
+          <button type="button" 
+                  class="btn btn-outline-secondary" 
+                  (click)="closeReassignModal()">
+            Cancel
+          </button>
+          <button type="submit" 
+                  class="btn px-4 fw-semibold" 
+                  [ngClass]="reassignType === 'MANAGER' ? 'btn-primary' : 'btn-success'">
+            <i class="bi bi-check-lg me-1"></i>
+            {{ reassignType === 'MANAGER' ? 'Save Manager Assignment' : 'Save Finance Assignment' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

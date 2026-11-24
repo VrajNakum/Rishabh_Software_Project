@@ -1,0 +1,87 @@
+.notification-bell-btn {
+  width: 40px;
+  height: 40px;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+  background-color: #ffffff;
+}
+
+.notification-bell-btn:hover {
+  background-color: #f1f5f9;
+  transform: scale(1.05);
+}
+
+.notification-badge {
+  font-size: 0.65rem;
+  padding: 0.25em 0.45em;
+  font-weight: 700;
+}
+
+.notification-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 380px;
+  max-width: 90vw;
+  z-index: 1060;
+  border-radius: 12px;
+  overflow: hidden;
+  animation: slideDown 0.15s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.notification-scroll-body {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  transition: background-color 0.15s ease;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+
+.notification-item:hover {
+  background-color: #f8fafc !important;
+}
+
+.notification-unread {
+  background-color: #f0f7ff !important;
+  border-left: 3px solid #0076ce !important;
+}
+
+.notification-icon-box {
+  width: 36px;
+  height: 36px;
+}
+
+.empty-icon-circle {
+  width: 60px;
+  height: 60px;
+}
+
+.notification-message {
+  line-height: 1.35;
+  font-size: 0.82rem;
+}
+
+.notif-checkbox {
+  cursor: pointer;
+  width: 15px;
+  height: 15px;
+}
+
+.notif-checkbox:checked {
+  background-color: #0f3d73;
+  border-color: #0f3d73;
+}

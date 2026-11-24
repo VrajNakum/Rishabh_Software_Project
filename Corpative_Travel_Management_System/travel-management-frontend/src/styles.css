@@ -1,0 +1,625 @@
+/* Rishabh Software Corporate Travel Management System - Light UI Styles */
+
+:root {
+  --rs-primary: #0f3d73;       /* Rishabh Software Corporate Navy */
+  --rs-accent: #0076ce;        /* Tech Accent Blue */
+  --rs-bg: #f8fafc;            /* Clean Off-White */
+  --rs-card-bg: #ffffff;       /* Pure White Card */
+  --rs-border: #e2e8f0;        /* Subtle Border */
+  --rs-text: #1e293b;          /* Dark Slate Body Text */
+  --rs-muted: #64748b;         /* Muted Slate Text */
+}
+
+body {
+  background-color: var(--rs-bg);
+  color: var(--rs-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* Instant Tab Display & Hidden Handling */
+[hidden] {
+  display: none !important;
+}
+
+.tab-pane-instant {
+  display: block;
+}
+
+/* Subtle Fade-in Animation - Rapid 0.08s for Instant Responsive Feel */
+.fade-in {
+  animation: fadeIn 0.08s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0.8;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Corporate Cards */
+.rs-card {
+  background: var(--rs-card-bg);
+  border: 1px solid var(--rs-border);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rs-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* =========================================================
+   SPLASH SCREEN (3 SECONDS DURATION - MATCHING LOGO #00205C)
+   ========================================================= */
+
+.splash-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  /* Exact match with Rishabh logo dark navy #00205C with deep radial lighting */
+  background: radial-gradient(circle at center, #002b7a 0%, #00205c 65%, #00153d 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  color: #ffffff;
+  transition: opacity 0.35s ease-out, visibility 0.35s ease-out;
+  pointer-events: all;
+  animation: splashAutoFadeOut 3.1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.splash-screen.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@keyframes splashAutoFadeOut {
+  0% {
+    opacity: 1;
+    visibility: visible;
+  }
+  86% {
+    opacity: 1;
+    visibility: visible;
+  }
+  97% {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+.splash-content {
+  animation: splashScaleIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes splashScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.splash-logo-container {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-radius: 50%;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 45px rgba(255, 255, 255, 0.25), inset 0 0 15px rgba(255, 255, 255, 0.15);
+}
+
+.splash-logo {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.35));
+  animation: splashFloat 2.5s ease-in-out infinite alternate;
+}
+
+@keyframes splashFloat {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-6px);
+  }
+}
+
+.splash-title {
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 2.2rem;
+  letter-spacing: -0.025em;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+
+.splash-subtitle {
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+}
+
+.splash-progress-track {
+  width: 240px;
+  height: 5px;
+  background-color: rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.splash-progress-bar {
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  border-radius: 999px;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.9);
+  animation: splashProgress 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes splashProgress {
+  0% {
+    transform: translateX(-100%);
+  }
+  40% {
+    transform: translateX(-35%);
+  }
+  80% {
+    transform: translateX(-10%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.splash-status {
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* =========================================================
+   TOP CORPORATE HEADER & BRANDING
+   ========================================================= */
+
+.corporate-header {
+  min-height: 64px;
+}
+
+.header-logo {
+  height: 44px;
+  width: auto;
+  max-width: 200px;
+  object-fit: contain;
+  display: block;
+}
+
+.header-brand-col {
+  z-index: 2;
+}
+
+.header-user-col {
+  z-index: 2;
+}
+
+.user-badge-container {
+  background-color: #f8fafc;
+  border-color: #cbd5e1 !important;
+  font-size: 0.875rem;
+}
+
+.user-role-name {
+  color: var(--rs-primary);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.btn-logout {
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+}
+
+.btn-logout:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.header-persona-col {
+  z-index: 2;
+}
+
+.persona-select {
+  min-width: 230px;
+}
+
+.header-title-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .header-title-container {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    width: auto;
+    white-space: nowrap;
+    z-index: 1;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .header-title-container {
+    order: 3;
+    width: 100%;
+    margin-top: 0.5rem;
+    padding-top: 0.25rem;
+    border-top: 1px dashed var(--rs-border);
+  }
+}
+
+.header-app-title {
+  color: var(--rs-primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+@media (max-width: 767.98px) {
+  .header-app-title {
+    font-size: 1.05rem;
+  }
+}
+
+/* =========================================================
+   STATUS LABELS - CLEAN TEXT ONLY (NO BOX / NO BACKGROUND)
+   Font & Font Color Only
+   ========================================================= */
+
+.status-badge {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.015em;
+  padding: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  line-height: 1.25;
+  white-space: nowrap;
+  vertical-align: middle;
+  text-transform: capitalize;
+  box-shadow: none !important;
+}
+
+.status-badge i {
+  display: none !important;
+}
+
+/* 1. APPROVE: crisp green font */
+.badge-approved {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #166534 !important;
+  border: none !important;
+}
+
+/* 2. DRAFT: crisp charcoal font */
+.badge-draft {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #334155 !important;
+  border: none !important;
+}
+
+/* 3. PENDING (MANAGER): crisp amber font */
+.badge-pending-manager {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #b45309 !important;
+  border: none !important;
+}
+
+/* 4. PENDING (FINANCE): crisp indigo font */
+.badge-pending-finance {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #4338ca !important;
+  border: none !important;
+}
+
+/* 5. GENERIC PENDING */
+.badge-pending {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #b45309 !important;
+  border: none !important;
+}
+
+/* 6. REJECTED: crisp dark red font */
+.badge-rejected {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #b91c1c !important;
+  border: none !important;
+}
+
+/* 7. CANCELLED: crisp zinc font */
+.badge-cancelled {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #52525b !important;
+  border: none !important;
+}
+
+/* 8. REIMBURSED: crisp teal font */
+.badge-reimbursed {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #0f766e !important;
+  border: none !important;
+}
+
+/* =========================================================
+   STATUS QUICK-FILTER BAR (LIGHT UI)
+   ========================================================= */
+
+.status-filter-group {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  padding: 0.25rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.status-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid transparent;
+  color: #64748b;
+  background: transparent;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+}
+
+.status-filter-chip:hover {
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.status-filter-chip.active {
+  background: #ffffff;
+  color: #0f3d73;
+  font-weight: 600;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.status-filter-chip.filter-approved.active {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.status-filter-chip.filter-pending.active {
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.status-filter-chip.filter-draft.active {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.status-filter-chip.filter-rejected.active {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+/* Quick summary card highlights */
+.card-stat-approved {
+  border-left: 4px solid #16a34a !important;
+}
+
+.card-stat-pending {
+  border-left: 4px solid #d97706 !important;
+}
+
+.card-stat-draft {
+  border-left: 4px solid #64748b !important;
+}
+
+.card-stat-rejected {
+  border-left: 4px solid #dc2626 !important;
+}
+
+.card-stat-reimbursed {
+  border-left: 4px solid #059669 !important;
+}
+
+/* =========================================================
+   NAVIGATION TABS - PROMINENT, SPACIOUS & CLEAR
+   ========================================================= */
+
+.corporate-nav-tabs {
+  background: #ffffff;
+  padding: 0.5rem 0.65rem;
+  border-radius: 12px;
+  border: 1px solid var(--rs-border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.corporate-nav-tabs .nav-link {
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.65rem 1.25rem;
+  border-radius: 8px;
+  color: #475569;
+  border: 1px solid transparent;
+  transition: background-color 0.08s ease-out, color 0.08s ease-out, transform 0.06s ease-out;
+}
+
+.corporate-nav-tabs .nav-link:hover {
+  background: #f1f5f9;
+  color: var(--rs-primary);
+}
+
+.corporate-nav-tabs .nav-link.active {
+  background: var(--rs-primary) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(15, 61, 115, 0.25);
+}
+
+/* =========================================================
+   REJECTION REASON MODAL - SPACIOUS, CENTERED & VIEWPORT-SAFE
+   ========================================================= */
+
+.rejection-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  animation: modalFadeIn 0.2s ease-out forwards;
+}
+
+.rejection-modal-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2005;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow-y: auto;
+  pointer-events: auto;
+}
+
+.rejection-modal-card {
+  width: 100%;
+  max-width: 720px;
+  background: #ffffff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* =========================================================
+   ACTIVE PERFORMANCE & TACTILE CLICK FEEDBACK FOR ALL BUTTONS
+   ========================================================= */
+
+button, .btn {
+  transition: transform 0.06s ease-out,
+              box-shadow 0.08s ease-out,
+              background-color 0.1s ease-out,
+              border-color 0.1s ease-out,
+              opacity 0.1s ease-out;
+  position: relative;
+  user-select: none;
+}
+
+/* Instant tactile click compression on mouse down with zero delay */
+button:active:not(:disabled),
+.btn:active:not(:disabled) {
+  transform: translateY(1.5px) scale(0.982) !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.14) !important;
+  transition: none !important;
+}
+
+/* Loading / Disabled state during program load */
+button:disabled,
+.btn:disabled,
+.btn.disabled {
+  cursor: not-allowed !important;
+  opacity: 0.68;
+  transform: none !important;
+  pointer-events: none;
+}
+
+/* Smooth spinner sizing for loading performance feedback */
+.spinner-border-sm {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-width: 0.15em;
+  vertical-align: -0.125em;
+}
+
+/* Pulse highlight on focused buttons for accessibility */
+button:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--rs-accent);
+  outline-offset: 2px;
+}

@@ -1,0 +1,135 @@
+.admin-portal-container {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-shield-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+}
+
+.metric-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: #ffffff;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.metric-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-search-group {
+  max-width: 320px;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #fff;
+}
+
+.avatar-employee {
+  background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+}
+
+.avatar-manager {
+  background: linear-gradient(135deg, #0dcaf0, #0aa2c0);
+  color: #032830;
+}
+
+.avatar-finance {
+  background: linear-gradient(135deg, #198754, #157347);
+}
+
+.avatar-admin {
+  background: linear-gradient(135deg, #ffc107, #ff9800);
+  color: #332701;
+}
+
+/* Role Selector Cards in Modal */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.role-selector-card {
+  transition: all 0.2s ease;
+  background: #fdfdfd;
+}
+
+.role-selector-card:hover {
+  border-color: #0d6efd !important;
+  background: #f8faff;
+}
+
+.selected-role-card {
+  border-color: #0d6efd !important;
+  background: #eff6ff !important;
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+}
+
+.role-icon-pill {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.pill-employee {
+  background: #e7f1ff;
+  color: #0d6efd;
+}
+
+.pill-manager {
+  background: #cff4fc;
+  color: #055160;
+}
+
+.pill-finance {
+  background: #d1e7dd;
+  color: #0f5132;
+}
+
+.user-directory-table th {
+  background-color: #f8fafc;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+}
+
+.user-directory-table td {
+  padding: 0.75rem 0.75rem;
+}

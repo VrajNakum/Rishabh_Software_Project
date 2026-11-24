@@ -1,0 +1,245 @@
+<div class="row g-4">
+  <!-- Form Section -->
+  <div class="col-lg-5">
+    <div class="rs-card p-4">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="fw-bold mb-0">
+          <i class="bi me-1" [ngClass]="editingDraftId ? 'bi-pencil-square text-primary' : 'bi-plus-circle text-primary'"></i>
+          {{ editingDraftId ? 'Edit Draft #' + editingDraftId : 'New Travel Request' }}
+        </h5>
+        <button *ngIf="editingDraftId" 
+                type="button" 
+                class="btn btn-sm btn-outline-secondary" 
+                (click)="onCancelEdit()"
+                title="Clear form and create a new request">
+          <i class="bi bi-x-circle me-1"></i> Cancel Edit
+        </button>
+      </div>
+
+      <div *ngIf="editingDraftId" class="alert alert-info py-2 px-3 small mb-3 border">
+        <i class="bi bi-info-circle-fill me-1"></i>
+        Editing <strong>Draft #{{ editingDraftId }}</strong>. Modify the input fields below and click <strong>Submit for Approval</strong> or <strong>Update Draft</strong>.
+      </div>
+
+      <!-- Logged-in Employee Identity Confirmation & Approval Routing Info -->
+      <div *ngIf="currentUser" class="mb-3 p-2.5 bg-light rounded border small">
+        <div class="d-flex align-items-center justify-content-between mb-1.5">
+          <div>
+            <span class="text-muted"><i class="bi bi-person-fill text-primary me-1"></i>Traveler:</span>
+            <strong class="text-dark ms-1">{{ currentUser.fullName }}</strong>
+          </div>
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+            {{ currentUser.departmentName || 'General' }}
+          </span>
+        </div>
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-1 border-top mt-1" style="font-size: 0.78rem;">
+          <span class="text-muted d-flex align-items-center">
+            <i class="bi bi-person-up text-primary me-1"></i> Manager Approval:
+            <strong class="text-dark ms-1">{{ currentUser.managerName || 'Bob Miller (user1manager)' }}</strong>
+          </span>
+          <span class="text-muted d-flex align-items-center">
+            <i class="bi bi-cash-coin text-success me-1"></i> Finance Approval:
+            <strong class="text-dark ms-1">{{ currentUser.financeName || 'Carol Davis (user1finance)' }}</strong>
+          </span>
+        </div>
+      </div>
+
+      <form (ngSubmit)="onFormSubmit(false)">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Destination</label>
+          <input type="text" class="form-control" [(ngModel)]="newRequest.destination" name="destination" placeholder="e.g. San Francisco, CA" required>
+        </div>
+        <div class="row mb-3">
+          <div class="col">
+            <label class="form-label small fw-semibold">Start Date</label>
+            <input type="date" class="form-control" [(ngModel)]="newRequest.startDate" name="startDate" required>
+          </div>
+          <div class="col">
+            <label class="form-label small fw-semibold">End Date</label>
+            <input type="date" class="form-control" [(ngModel)]="newRequest.endDate" name="endDate" required>
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col">
+            <label class="form-label small fw-semibold">Estimated Budget ($) To Travel</label>
+            <input  type="number" class="form-control" [(ngModel)]="newRequest.estimatedBudget" name="estimatedBudget" required >
+          </div>
+          <div class="col">
+            <label class="form-label small fw-semibold">Travel Class</label>
+            <select class="form-select" [(ngModel)]="newRequest.travelClass" name="travelClass">
+              <option *ngFor="let tc of travelClasses" [value]="tc">{{ tc }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="form-label small fw-semibold">Purpose</label>
+          <textarea class="form-control" rows="2" [(ngModel)]="newRequest.purpose" name="purpose" placeholder="Client technical workshop" required></textarea>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" 
+                  class="btn btn-primary flex-grow-1">
+            <i class="bi bi-check-lg me-1"></i>
+            Submit for Approval
+          </button>
+          <button type="button" 
+                  class="btn btn-outline-secondary" 
+                  (click)="onFormSubmit(true)">
+            <i class="bi bi-bookmark me-1"></i>
+            {{ editingDraftId ? 'Update Draft' : 'Save Draft' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Requests Table Section with Status Overview & Filter -->
+  <div class="col-lg-7">
+    <div class="rs-card p-4">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+          <h5 class="fw-bold mb-0"><i class="bi bi-list-task me-1"></i> Travel History & Status</h5>
+          <small class="text-muted" *ngIf="currentUser">
+            Personal travel records for <strong>{{ currentUser.fullName }}</strong>
+          </small>
+        </div>
+        
+        <!-- Quick Filter Chips for Clear Status Visibility -->
+        <div class="status-filter-group" role="group" aria-label="Status filter">
+          <button type="button" 
+                  class="status-filter-chip"
+                  [class.active]="statusFilter === 'ALL'"
+                  (click)="setStatusFilter('ALL')">
+            All <span class="badge bg-secondary ms-1 rounded-pill">{{ myRequests.length }}</span>
+          </button>
+          <button type="button" 
+                  class="status-filter-chip filter-approved"
+                  [class.active]="statusFilter === 'APPROVED'"
+                  (click)="setStatusFilter('APPROVED')">
+            <i class="bi bi-check-circle-fill"></i> Approve
+            <span class="badge badge-approved ms-1">{{ countApproved }}</span>
+          </button>
+          <button type="button" 
+                  class="status-filter-chip filter-pending"
+                  [class.active]="statusFilter === 'PENDING'"
+                  (click)="setStatusFilter('PENDING')">
+            <i class="bi bi-hourglass-split"></i> Pending
+            <span class="badge badge-pending-manager ms-1">{{ countPending }}</span>
+          </button>
+          <button type="button" 
+                  class="status-filter-chip filter-draft"
+                  [class.active]="statusFilter === 'DRAFT'"
+                  (click)="setStatusFilter('DRAFT')">
+            <i class="bi bi-file-earmark-text-fill"></i> Draft
+            <span class="badge badge-draft ms-1">{{ countDraft }}</span>
+          </button>
+          <button type="button" 
+                  class="status-filter-chip filter-rejected"
+                  [class.active]="statusFilter === 'REJECTED'"
+                  (click)="setStatusFilter('REJECTED')">
+            <i class="bi bi-x-circle-fill"></i> Reject
+            <span class="badge badge-rejected ms-1">{{ countRejected }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light small text-uppercase">
+            <tr>
+              <th>ID</th>
+              <th>Destination</th>
+              <th>Dates</th>
+              <th>Budget</th>
+              <th>Status</th>
+              <th>Policy</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let req of paginatedRequests">
+              <td><strong>#{{ req.id }}</strong></td>
+              <td>
+                <div>{{ req.destination }}</div>
+                <div *ngIf="req.status === 'REJECTED' && req.policyViolationReason" 
+                     class="text-danger small mt-1 p-1 bg-danger-subtle rounded border border-danger-subtle" 
+                     style="font-size: 0.75rem;">
+                  <i class="bi bi-chat-quote-fill me-1"></i>
+                  <strong>Rejection Note:</strong> {{ req.policyViolationReason }}
+                </div>
+              </td>
+              <td class="small">{{ req.startDate }} to {{ req.endDate }}</td>
+              <td>${{ req.estimatedBudget | number:'1.2-2' }}</td>
+              <td>
+                <!-- Status Label (Clean Font & Color): If draft, clickable to load into input fields -->
+                <button *ngIf="req.status === 'DRAFT'"
+                        type="button" 
+                        class="status-badge badge-draft btn p-0 border-0 bg-transparent text-start"
+                        (click)="onLoadDraft(req)"
+                        title="Click to load draft details into form">
+                  Draft
+                  <i class="bi bi-pencil-fill ms-1 text-primary small"></i>
+                </button>
+                <span *ngIf="req.status !== 'DRAFT'" class="status-badge" [ngClass]="'badge-' + req.status.toLowerCase().replace('_', '-')">
+                  {{ formatStatusLabel(req.status) }}
+                </span>
+              </td>
+              <td>
+                <span *ngIf="req.status === 'REJECTED'" class="badge bg-danger-subtle text-danger" title="{{ req.policyViolationReason }}">
+                  <i class="bi bi-x-octagon"></i> Rejected
+                </span>
+                <span *ngIf="req.status !== 'REJECTED' && req.policyViolated" class="badge bg-danger-subtle text-danger" title="{{ req.policyViolationReason }}">
+                  <i class="bi bi-exclamation-triangle"></i> Exceeded
+                </span>
+                <span *ngIf="req.status !== 'REJECTED' && !req.policyViolated" class="badge bg-success-subtle text-success">
+                  <i class="bi bi-shield-check"></i> Compliant
+                </span>
+              </td>
+              <td>
+                <div class="d-flex align-items-center gap-1">
+                  <button class="btn btn-sm btn-outline-primary" (click)="onViewTripDetails(req)" title="View Details">
+                    <i class="bi bi-eye"></i> Details
+                  </button>
+
+                  <!-- Delete Operation for Admin to Manage Database -->
+                  <button *ngIf="canDeleteRequest(req.status)"
+                          class="btn btn-sm btn-outline-danger" 
+                          (click)="onDeleteRequest(req)" 
+                          [title]="getDeleteTitle(req.status)">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="myRequests.length === 0">
+              <td colspan="7" class="text-center py-5 text-muted">
+                <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+                <div class="fw-semibold text-dark mb-1">No Travel Requests Found</div>
+                <div class="small">
+                  No personal travel history found for <strong>{{ currentUser?.fullName || 'your account' }}</strong>.
+                  <br>
+                  Fill out the form on the left to submit or save your first travel request!
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="myRequests.length > 0 && filteredRequests.length === 0">
+              <td colspan="7" class="text-center py-4 text-muted">
+                <i class="bi bi-funnel fs-3 d-block mb-2 text-warning"></i>
+                No personal requests found matching status <strong>"{{ formatStatusLabel(statusFilter) }}"</strong>.
+                <button class="btn btn-sm btn-link text-decoration-none ms-1" (click)="setStatusFilter('ALL')">Show all</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Travel History Pagination -->
+      <app-pagination 
+        [totalItems]="filteredRequests.length" 
+        [pageSize]="pageSize" 
+        [currentPage]="currentPage" 
+        (pageChange)="currentPage = $event" 
+        (pageSizeChange)="pageSize = $event; currentPage = 1">
+      </app-pagination>
+    </div>
+  </div>
+</div>
