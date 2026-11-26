@@ -1,0 +1,30 @@
+.emp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 1050;
+}
+
+.emp-modal-wrapper {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1055;
+  pointer-events: none;
+}
+
+.emp-modal-card {
+  width: 100%;
+  max-width: 720px;
+  background: #ffffff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.25);
+  pointer-events: auto;
+  max-height: 90vh;
+  overflow-y: auto;
+}

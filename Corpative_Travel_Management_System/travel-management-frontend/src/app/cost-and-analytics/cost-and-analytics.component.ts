@@ -2,6 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CostSummaryReportDto, DepartmentSpendDto } from '../models/reports.model';
 import { PaginationComponent } from '../shared/pagination/pagination.component';
+import { getDepartmentTextClass } from '../shared/status-utils';
 
 @Component({
   selector: 'app-cost-and-analytics',
@@ -15,6 +16,8 @@ export class CostAndAnalyticsComponent {
   @Input() departmentSpends: DepartmentSpendDto[] = [];
   @Input() countPending: number = 0;
   @Input() countDraft: number = 0;
+
+  getDepartmentTextClass = getDepartmentTextClass;
 
   get effectiveCostSummary(): CostSummaryReportDto {
     return this.costSummary || {

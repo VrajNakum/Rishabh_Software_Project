@@ -149,4 +149,64 @@ describe('NotificationService', () => {
     service.markAllAsReadForUser(1);
     expect(service.getUnreadCountForUserSync(1)).toBe(0);
   });
+
+  it('should enforce required notification fields (recipientUserId, title, message, type)', () => {
+    expect(() =>
+      service.sendNotification({
+        recipientUserId: 1,
+        title: '   ',
+        message: 'Valid message',
+        type: 'SYSTEM'
+      })
+    ).toThrow('Notification required fields missing');
+
+    expect(() =>
+      service.sendNotification({
+        recipientUserId: 1,
+        title: 'Valid title',
+        message: '',
+        type: 'SYSTEM'
+      })
+    ).toThrow('Notification required fields missing');
+  });
+
+  it('should send notifications to Employee, Manager, Finance, and Admin on submission, approvals, and rejections', () => {
+    service.setAdminUserIds([4]);
+    [1, 2, 3, 4].forEach(id => service.clearAllForUser(id));
+
+    const flaggedReq: TravelRequestResponseDto = {
+      ...mockRequest,
+      policyViolated: true,
+      policyViolationReason: 'Estimated budget (₹3000.00) exceeds ECONOMY travel class max budget limit (₹2000.00)'
+    };
+
+    service.notifyRequestSubmitted(flaggedReq, mockEmployee, 1, 'Bob Miller', 3, 'Carol Davis');
+    // Admin (id: 4) receives both SUBMISSION and POLICY_ALERT
+    const adminSubmitNotifs = service.getNotificationsForUserSync(4);
+    expect(adminSubmitNotifs.some(n => n.type === 'SUBMISSION')).toBe(true);
+    expect(adminSubmitNotifs.some(n => n.type === 'POLICY_ALERT')).toBe(true);
+
+    // Clear and test Manager Approval -> Employee, Finance, and Admin notified
+    [1, 2, 3, 4].forEach(id => service.clearAllForUser(id));
+    service.notifyRequestReviewed({ ...mockRequest, status: RequestStatus.PENDING_FINANCE }, mockManager, 'APPROVE', 'OK');
+    expect(service.getNotificationsForUserSync(2)[0].type).toBe('APPROVAL');
+    expect(service.getNotificationsForUserSync(3)[0].type).toBe('APPROVAL');
+    expect(service.getNotificationsForUserSync(4)[0].type).toBe('APPROVAL');
+
+    // Clear and test Finance Final Approval -> Employee, Manager, and Admin notified
+    [1, 2, 3, 4].forEach(id => service.clearAllForUser(id));
+    service.notifyRequestReviewed({ ...mockRequest, status: RequestStatus.APPROVED }, mockFinance, 'APPROVE', 'Cleared');
+    expect(service.getNotificationsForUserSync(2)[0].type).toBe('APPROVAL');
+    expect(service.getNotificationsForUserSync(1)[0].type).toBe('APPROVAL');
+    expect(service.getNotificationsForUserSync(4)[0].type).toBe('APPROVAL');
+
+    // Clear and test Admin Rejection -> Employee, Manager, and Finance notified with feedback
+    const mockAdmin: CurrentUser = { id: 4, fullName: 'Admin User', email: 'admin@company.com', role: Role.ADMIN, departmentName: 'IT' };
+    [1, 2, 3, 4].forEach(id => service.clearAllForUser(id));
+    service.notifyRequestReviewed({ ...mockRequest, status: RequestStatus.REJECTED }, mockAdmin, 'REJECT', 'Over quarterly cap');
+    expect(service.getNotificationsForUserSync(2)[0].type).toBe('REJECTION');
+    expect(service.getNotificationsForUserSync(2)[0].message).toContain('Over quarterly cap');
+    expect(service.getNotificationsForUserSync(1)[0].type).toBe('REJECTION');
+    expect(service.getNotificationsForUserSync(3)[0].type).toBe('REJECTION');
+  });
 });

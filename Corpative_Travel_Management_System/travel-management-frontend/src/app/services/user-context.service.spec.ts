@@ -146,4 +146,122 @@ describe('UserContextService', () => {
     expect(storedAlice?.managerId).toBe(1);
     expect(storedAlice?.financeId).toBe(3);
   });
+
+  it('should update user access role in backend and local storage while preserving manager and finance assignments', async () => {
+    const targetUserId = 2; // Alice Johnson (managerId: 1, financeId: 3)
+    userServiceSpy.updateUser.mockImplementationOnce((id: number, payload: any) => of({
+      id,
+      fullName: 'Alice Johnson',
+      email: 'alice.employee@company.com',
+      role: payload.role,
+      departmentName: 'Engineering',
+      managerId: payload.managerId,
+      managerName: 'Bob Miller',
+      financeId: payload.financeId,
+      financeName: 'Carol Davis'
+    }));
+
+    const updated = await firstValueFrom(service.updateUserRole(targetUserId, Role.MANAGER));
+
+    expect(userServiceSpy.updateUser).toHaveBeenCalledWith(targetUserId, {
+      role: Role.MANAGER,
+      managerId: 1,
+      financeId: 3
+    });
+    expect(updated.role).toBe(Role.MANAGER);
+
+    const stored = localStorage.getItem('tms_corporate_users_database');
+    const storedUsers: CurrentUser[] = JSON.parse(stored!);
+    const storedAlice = storedUsers.find(u => u.id === targetUserId);
+    expect(storedAlice?.role).toBe(Role.MANAGER);
+    expect(storedAlice?.managerId).toBe(1);
+    expect(storedAlice?.financeId).toBe(3);
+  });
+
+  it('should gracefully persist role change even if backend HTTP fails', async () => {
+    userServiceSpy.updateUser.mockReturnValue(throwError(() => new Error('Network error')));
+
+    const updated = await firstValueFrom(service.updateUserRole(3, Role.EMPLOYEE)); // Carol Davis (was FINANCE with financeId: 3)
+
+    expect(updated.role).toBe(Role.EMPLOYEE);
+    expect(updated.financeId).toBeNull();
+    expect(updated.financeName).toBeNull();
+  });
+
+  it('should persist new user to backend database and propagate error instead of faking local save when backend fails', async () => {
+    const payload = {
+      fullName: 'DB User',
+      email: 'db.user@company.com',
+      password: 'Password@123',
+      role: Role.EMPLOYEE,
+      departmentName: 'Engineering',
+      managerId: 1,
+      financeId: 3
+    };
+
+    userServiceSpy.createUser.mockReturnValueOnce(of({
+      id: 99,
+      ...payload,
+      managerName: 'Bob Miller',
+      financeName: 'Carol Davis'
+    }));
+
+    const created = await firstValueFrom(service.createUser(payload));
+    expect(userServiceSpy.createUser).toHaveBeenCalledWith(payload);
+    expect(created.id).toBe(99);
+    expect(service.findUserById(99)?.email).toBe('db.user@company.com');
+
+    // When backend rejects or is unreachable, createUser must error rather than silently faking local save
+    userServiceSpy.createUser.mockReturnValueOnce(
+      throwError(() => ({ status: 0, message: 'Http failure response' }))
+    );
+
+    await expect(firstValueFrom(service.createUser({
+      ...payload,
+      email: 'failed.user@company.com'
+    }))).rejects.toThrow('Backend server is unreachable');
+
+    expect(service.findUserByEmail('failed.user@company.com')).toBeUndefined();
+  });
+
+  it('should detect unsynced local-only users on refreshUsers and sync them to backend database', async () => {
+    service.addUserLocally({
+      id: 999,
+      fullName: 'Offline Created',
+      email: 'offline.created@company.com',
+      password: 'Offline@123',
+      role: Role.EMPLOYEE,
+      departmentName: 'Engineering',
+      managerId: 1,
+      financeId: 3
+    });
+
+    const serverUsers: CurrentUser[] = [
+      { id: 1, fullName: 'Payal Dee', email: 'payaldee@gmail.com', role: Role.MANAGER, departmentName: 'Engineering' },
+      { id: 2, fullName: 'Mansukhlal', email: 'mansukhlal@gmail.com', role: Role.FINANCE, departmentName: 'Finance' }
+    ];
+    userServiceSpy.getAllUsers.mockReturnValueOnce(of(serverUsers));
+
+    await firstValueFrom(service.refreshUsers());
+
+    expect(service.isBackendConnected).toBe(true);
+    expect(service.unsyncedUsers.length).toBe(1);
+    expect(service.unsyncedUsers[0].email).toBe('offline.created@company.com');
+
+    userServiceSpy.createUser.mockReturnValueOnce(of({
+      id: 10,
+      fullName: 'Offline Created',
+      email: 'offline.created@company.com',
+      role: Role.EMPLOYEE,
+      departmentName: 'Engineering',
+      managerId: 1,
+      financeId: 2
+    }));
+
+    const syncResult = await firstValueFrom(service.syncUnsyncedUsers());
+    expect(syncResult.syncedCount).toBe(1);
+    expect(syncResult.failed.length).toBe(0);
+    expect(service.unsyncedUsers.length).toBe(0);
+    expect(service.findUserByEmail('offline.created@company.com')?.id).toBe(10);
+  });
 });

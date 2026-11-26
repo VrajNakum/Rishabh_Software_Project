@@ -6,6 +6,7 @@ import com.corporate.travel.dto.TravelRequestCreateDto;
 import com.corporate.travel.dto.TravelRequestResponseDto;
 
 import java.util.List;
+import java.util.Map;
 
 public interface TravelRequestService {
     TravelRequestResponseDto createTravelRequest(TravelRequestCreateDto dto);
@@ -19,4 +20,5 @@ public interface TravelRequestService {
     // State machine & audit log methods
     TravelRequestResponseDto processApprovalAction(Long requestId, ApprovalActionDto dto);
     List<ApprovalAuditLogResponseDto> getAuditLogsForRequest(Long requestId);
+    List<Map<String, Object>> getPredefinedPolicies();
 }

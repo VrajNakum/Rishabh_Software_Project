@@ -3,7 +3,7 @@ import { AdminPortalComponent } from './admin-portal.component';
 import { UserContextService, CurrentUser } from '../services/user-context.service';
 import { Role, TravelClass, RequestStatus } from '../models/enums.model';
 import { TravelRequestResponseDto } from '../models/travel-request.model';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 describe('AdminPortalComponent', () => {
   let component: AdminPortalComponent;
@@ -47,6 +47,11 @@ describe('AdminPortalComponent', () => {
     userContextServiceMock = {
       availableUsers: [...mockUsers],
       managers: [mockUsers[1]],
+      backendConnected$: of(true),
+      unsyncedUsers$: of([]),
+      isBackendConnected: true,
+      backendSyncError: null,
+      refreshUsers: vi.fn().mockReturnValue(of([...mockUsers])),
       createUser: vi.fn().mockImplementation((payload) => of({
         id: 10,
         fullName: payload.fullName,
@@ -69,6 +74,13 @@ describe('AdminPortalComponent', () => {
           financeName: finance ? finance.fullName : null
         });
       }),
+      updateUserRole: vi.fn().mockImplementation((userId, newRole) => {
+        const u = mockUsers.find(x => x.id === userId) || mockUsers[0];
+        return of({
+          ...u,
+          role: newRole
+        });
+      }),
       setCurrentUser: vi.fn()
     };
 
@@ -88,6 +100,10 @@ describe('AdminPortalComponent', () => {
 
   it('should create the admin portal component', () => {
     expect(component).toBeTruthy();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).not.toContain('DB Synced');
+    expect(compiled.textContent).not.toContain('DB Offline');
+    expect(compiled.querySelector('button[title*="Refresh user directory"]')).toBeNull();
   });
 
   it('should display metrics for Employees, Managers, and Finance officers', () => {
@@ -99,16 +115,31 @@ describe('AdminPortalComponent', () => {
 
   it('should open modal to Add New User with default role', () => {
     component.openAddUserModal(Role.MANAGER);
+    fixture.detectChanges();
     expect(component.showAddUserModal).toBe(true);
     expect(component.newUser.role).toBe(Role.MANAGER);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const passwordInput = compiled.querySelector('input[name="password"]') as HTMLInputElement;
+    expect(passwordInput).toBeTruthy();
+    expect(passwordInput.getAttribute('type')).toBe('password');
+    expect(passwordInput.closest('.input-group')?.querySelector('button')).toBeNull();
   });
 
-  it('should validate form and add a new user as Finance Officer with password', () => {
+  it('should validate form and add a new user as Finance Officer with Reporting Manager and Assigned Finance', () => {
     component.openAddUserModal(Role.FINANCE);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('select[name="managerId"]')).toBeTruthy();
+    expect(compiled.querySelector('select[name="financeId"]')).toBeTruthy();
+
     component.newUser.fullName = 'Grace Hopper';
     component.newUser.email = 'grace.finance@company.com';
     component.newUser.password = 'gracePass123';
     component.newUser.departmentName = 'Finance';
+    component.newUser.managerId = 1;
+    component.newUser.financeId = 3;
 
     const emitSpy = vi.spyOn(component.userCreated, 'emit');
     component.submitAddUser();
@@ -119,8 +150,39 @@ describe('AdminPortalComponent', () => {
       password: 'gracePass123',
       role: Role.FINANCE,
       departmentName: 'Finance',
-      managerId: null,
-      financeId: null
+      managerId: 1,
+      financeId: 3
+    });
+    expect(emitSpy).toHaveBeenCalled();
+    expect(component.showAddUserModal).toBe(false);
+  });
+
+  it('should render Reporting Manager and Assigned Finance inputs for Manager role and submit assignments', () => {
+    component.openAddUserModal(Role.MANAGER);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('select[name="managerId"]')).toBeTruthy();
+    expect(compiled.querySelector('select[name="financeId"]')).toBeTruthy();
+
+    component.newUser.fullName = 'Alan Turing';
+    component.newUser.email = 'alan.manager@company.com';
+    component.newUser.password = 'alanPass123';
+    component.newUser.departmentName = 'Engineering';
+    component.newUser.managerId = 1;
+    component.newUser.financeId = 3;
+
+    const emitSpy = vi.spyOn(component.userCreated, 'emit');
+    component.submitAddUser();
+
+    expect(userContextServiceMock.createUser).toHaveBeenCalledWith({
+      fullName: 'Alan Turing',
+      email: 'alan.manager@company.com',
+      password: 'alanPass123',
+      role: Role.MANAGER,
+      departmentName: 'Engineering',
+      managerId: 1,
+      financeId: 3
     });
     expect(emitSpy).toHaveBeenCalled();
     expect(component.showAddUserModal).toBe(false);
@@ -188,6 +250,26 @@ describe('AdminPortalComponent', () => {
     component.newUser.password = 'abc';
     component.submitAddUser();
     expect(component.formError).toContain('Password must be at least 4 characters long.');
+  });
+
+  it('should display database error and keep modal open if createUser fails', () => {
+    userContextServiceMock.createUser.mockReturnValueOnce(
+      throwError(() => new Error('Backend server is unreachable (http://localhost:8080).'))
+    );
+
+    component.openAddUserModal(Role.EMPLOYEE);
+    component.newUser.fullName = 'Test User';
+    component.newUser.email = 'test.user@company.com';
+    component.newUser.password = 'password123';
+    component.newUser.departmentName = 'Engineering';
+
+    const emitSpy = vi.spyOn(component.userCreated, 'emit');
+    component.submitAddUser();
+
+    expect(component.formError).toContain('Backend server is unreachable');
+    expect(component.showAddUserModal).toBe(true);
+    expect(component.isSavingUser).toBe(false);
+    expect(emitSpy).not.toHaveBeenCalled();
   });
 
   it('should open modal to update Estimated Budget and emit budgetUpdated', () => {
@@ -287,20 +369,62 @@ describe('AdminPortalComponent', () => {
     expect(eligibleFin.some((f: CurrentUser) => f.id === 3)).toBe(false);
   });
 
-  it('should render edit buttons for Assigned Manager and Assigned Finance for all users including None and Self', () => {
+  it('should render edit buttons for Access Role, Assigned Manager, and Assigned Finance for all users', () => {
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     const userTable = compiled.querySelectorAll('table')[0];
     const userRows = userTable.querySelectorAll('tbody tr');
     expect(userRows.length).toBe(mockUsers.length);
 
-    // Each row in the Corporate User Directory should have both Assigned Manager and Assigned FINANCE edit buttons
+    // Each row in the Corporate User Directory should have Access Role, Assigned Manager, and Assigned FINANCE edit buttons
     userRows.forEach((row) => {
+      const accessRoleCell = row.querySelectorAll('td')[2];
+      expect(accessRoleCell.querySelector('.badge')).toBeNull();
+      const roleTextSpan = accessRoleCell.querySelector('div > div > span');
+      expect(roleTextSpan).toBeTruthy();
+      expect(roleTextSpan?.querySelector('i')).toBeNull();
+
+      const roleEditBtn = row.querySelector('button[title*="Access Role"]') as HTMLButtonElement;
       const managerEditBtn = row.querySelector('button[title*="Change Assigned Manager"]');
       const financeEditBtn = row.querySelector('button[title*="Change Assigned Finance Officer"]');
+      expect(roleEditBtn).toBeTruthy();
       expect(managerEditBtn).toBeTruthy();
       expect(financeEditBtn).toBeTruthy();
+
+      const departmentCell = row.querySelectorAll('td')[3];
+      expect(departmentCell.querySelector('.badge')).toBeNull();
+      expect(departmentCell.querySelector('i')).toBeNull();
+      const deptSpan = departmentCell.querySelector('span');
+      expect(deptSpan).toBeTruthy();
+      expect(deptSpan?.className).toContain('fw-semibold');
     });
+  });
+
+  it('should open edit Access Role modal, update user role, and emit userRoleUpdated', () => {
+    const targetUser = { ...mockUsers[0] }; // Alice Johnson (EMPLOYEE)
+    const emitSpy = vi.spyOn(component.userRoleUpdated, 'emit');
+
+    // Active admin cannot open edit role modal for themselves
+    component.openEditRoleModal(mockUsers[3]);
+    expect(component.showEditRoleModal).toBe(false);
+
+    // Open for another user
+    component.openEditRoleModal(targetUser);
+    expect(component.showEditRoleModal).toBe(true);
+    expect(component.editingRoleUser).toBe(targetUser);
+    expect(component.selectedUserRole).toBe(Role.EMPLOYEE);
+
+    component.selectedUserRole = Role.MANAGER;
+    component.saveUserRole();
+
+    expect(userContextServiceMock.updateUserRole).toHaveBeenCalledWith(2, Role.MANAGER);
+    expect(targetUser.role).toBe(Role.MANAGER);
+    expect(emitSpy).toHaveBeenCalledWith(expect.objectContaining({
+      id: 2,
+      role: Role.MANAGER
+    }));
+    expect(component.showEditRoleModal).toBe(false);
+    expect(component.editingRoleUser).toBeNull();
   });
 
   it('should immediately reassign manager and finance via quick select without loading', () => {

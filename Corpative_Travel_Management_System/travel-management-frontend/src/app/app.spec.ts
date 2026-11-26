@@ -818,7 +818,7 @@ describe('App', () => {
           estimatedBudget: 3500
         })
       );
-      expect(app.alertMessage).toContain('Estimated Budget for Request #101 updated to $3500.00');
+      expect(app.alertMessage).toContain('Estimated Budget for Request #101 updated to ₹3500.00');
     });
 
     it('should display User Role : User Name in header when logged in', async () => {
@@ -1024,6 +1024,176 @@ describe('App', () => {
       expect(itineraryExpenseServiceMock.deleteSegment).toHaveBeenCalledWith(101);
       expect(app.segments.length).toBe(1);
       expect(app.segments[0].id).toBe(102);
+    });
+
+    it('should flag policy violation warning and alert when submitting request over predefined budget limit', () => {
+      const fixture = TestBed.createComponent(App);
+      const app = fixture.componentInstance;
+      fixture.detectChanges();
+
+      const flaggedResponse: TravelRequestResponseDto = {
+        ...mockRequest,
+        id: 109,
+        destination: 'Singapore',
+        estimatedBudget: 3500,
+        travelClass: TravelClass.ECONOMY,
+        policyViolated: true,
+        policyViolationReason: 'Estimated budget (₹3500.00) exceeds ECONOMY travel class max budget limit (₹2000.00)'
+      };
+      travelRequestServiceMock.createRequest.mockReturnValueOnce(of(flaggedResponse));
+      travelRequestServiceMock.getAllRequests.mockReturnValueOnce(of([flaggedResponse]));
+
+      app.currentUser = {
+        id: 2,
+        fullName: 'Alice Johnson',
+        email: 'alice.employee@company.com',
+        role: Role.EMPLOYEE,
+        departmentName: 'Engineering',
+        managerId: 1,
+        financeId: 3
+      };
+      app.newRequest = {
+        employeeId: 2,
+        destination: 'Singapore',
+        startDate: '2026-12-10',
+        endDate: '2026-12-14',
+        purpose: 'Regional Summit',
+        estimatedBudget: 3500,
+        travelClass: TravelClass.ECONOMY,
+        draft: false
+      };
+
+      app.submitRequest(false);
+
+      expect(app.alertType).toBe('warning');
+      expect(app.alertMessage).toContain('Flagged Policy Violation');
+      expect(app.alertMessage).toContain('exceeds ECONOMY travel class max budget limit');
+      expect(app.requests[0].policyViolated).toBe(true);
+    });
+
+    it('should reject submission when Start Date is not after current date or End Date is not after Start Date', () => {
+      const fixture = TestBed.createComponent(App);
+      const app = fixture.componentInstance;
+      fixture.detectChanges();
+
+      const now = new Date();
+      const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const tomorrowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const tomorrowIso = `${tomorrowDate.getFullYear()}-${String(tomorrowDate.getMonth() + 1).padStart(2, '0')}-${String(tomorrowDate.getDate()).padStart(2, '0')}`;
+
+      app.newRequest = {
+        employeeId: 2,
+        destination: 'Boston',
+        startDate: todayIso,
+        endDate: tomorrowIso,
+        purpose: 'Client Visit',
+        estimatedBudget: 900,
+        travelClass: TravelClass.ECONOMY,
+        draft: false
+      };
+
+      app.submitRequest(false);
+      expect(app.alertType).toBe('danger');
+      expect(app.alertMessage).toBe('Start date must be after the current date.');
+      expect(travelRequestServiceMock.createRequest).not.toHaveBeenCalled();
+
+      app.newRequest.startDate = tomorrowIso;
+      app.newRequest.endDate = tomorrowIso;
+
+      app.submitRequest(false);
+      expect(app.alertType).toBe('danger');
+      expect(app.alertMessage).toBe('End date must be after the start date.');
+      expect(travelRequestServiceMock.createRequest).not.toHaveBeenCalled();
+    });
+
+    it('should dispatch approval and rejection notifications across Manager, Finance, and Admin reviews', () => {
+      const fixture = TestBed.createComponent(App);
+      const app = fixture.componentInstance;
+      fixture.detectChanges();
+
+      const reviewSpy = vi.spyOn(app.notificationService, 'notifyRequestReviewed');
+
+      // Admin approving a PENDING_FINANCE request must transition to APPROVED and dispatch notification
+      app.currentUser = mockAdminUser;
+      const financeStageReq: TravelRequestResponseDto = {
+        ...mockRequest,
+        id: 301,
+        status: RequestStatus.PENDING_FINANCE
+      };
+      app.requests = [financeStageReq];
+      travelRequestServiceMock.processApprovalAction.mockReturnValueOnce(of({ ...financeStageReq, status: RequestStatus.APPROVED }));
+
+      app.reviewRequest(301, 'APPROVE');
+
+      expect(financeStageReq.status).toBe(RequestStatus.APPROVED);
+      expect(reviewSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 301, status: RequestStatus.APPROVED }),
+        mockAdminUser,
+        'APPROVE',
+        expect.any(String)
+      );
+
+      // Finance rejecting a PENDING_FINANCE request dispatches REJECTION notification with comment
+      app.currentUser = mockFinanceUser;
+      const rejectReq: TravelRequestResponseDto = {
+        ...mockRequest,
+        id: 302,
+        status: RequestStatus.PENDING_FINANCE
+      };
+      app.requests = [rejectReq];
+      travelRequestServiceMock.processApprovalAction.mockReturnValueOnce(of({ ...rejectReq, status: RequestStatus.REJECTED }));
+
+      app.reviewRequest(302, 'REJECT', 'Exceeds Q4 budget');
+
+      expect(rejectReq.status).toBe(RequestStatus.REJECTED);
+      expect(reviewSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 302, status: RequestStatus.REJECTED }),
+        mockFinanceUser,
+        'REJECT',
+        'Exceeds Q4 budget'
+      );
+    });
+
+    it('should show View Employee Details nav tab before My Profile for Manager, Finance, and Admin only (not Employee)', async () => {
+      const fixture = TestBed.createComponent(App);
+      const app = fixture.componentInstance;
+
+      // 1. Employee should NOT see View Employee Details nav and cannot switch to it
+      app.userContext.loginWithUser({
+        id: 2,
+        fullName: 'Alice Johnson',
+        email: 'alice@company.com',
+        role: Role.EMPLOYEE,
+        departmentName: 'Engineering'
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(app.canViewEmployeeDetails).toBe(false);
+      expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('View Employee Details');
+      app.switchTab('employee-details');
+      expect(app.activeTab).not.toBe('employee-details');
+      expect(app.alertType).toBe('danger');
+
+      // 2. Manager, Finance, and Admin SHOULD see View Employee Details directly before My Profile
+      for (const reviewer of [mockManagerUser, mockFinanceUser, mockAdminUser]) {
+        app.userContext.loginWithUser(reviewer);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        expect(app.canViewEmployeeDetails).toBe(true);
+        const navButtons = Array.from(
+          (fixture.nativeElement as HTMLElement).querySelectorAll('.corporate-nav-tabs .nav-link')
+        ).map(el => (el.textContent || '').trim());
+        const empIdx = navButtons.findIndex(t => t.includes('View Employee Details'));
+        const profIdx = navButtons.findIndex(t => t.includes('My Profile'));
+        expect(empIdx).toBeGreaterThan(-1);
+        expect(profIdx).toBeGreaterThan(-1);
+        expect(empIdx).toBe(profIdx - 1);
+
+        app.switchTab('employee-details');
+        expect(app.activeTab).toBe('employee-details');
+      }
     });
   });
 });

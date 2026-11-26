@@ -1,3 +1,6 @@
+import { TravelClass } from '../models/enums.model';
+import { PredefinedTravelPolicyDto } from '../models/travel-request.model';
+
 export function getStatusIcon(status: string | null | undefined): string {
   if (!status) return 'bi-info-circle-fill';
   switch (status) {
@@ -26,4 +29,97 @@ export function formatStatusLabel(status: string | null | undefined): string {
     case 'PENDING': return 'Pending';
     default: return status.replace(/_/g, ' ');
   }
+}
+
+export function getDepartmentTextClass(departmentName: string | null | undefined): string {
+  const dept = (departmentName || '').trim().toLowerCase();
+  switch (dept) {
+    case 'engineering':
+      return 'text-primary';
+    case 'finance':
+      return 'text-success';
+    case 'sales':
+      return 'text-info-emphasis';
+    case 'human resources':
+    case 'hr':
+      return 'text-warning-emphasis';
+    case 'marketing':
+      return 'text-danger';
+    case 'operations':
+      return 'text-secondary';
+    default:
+      return 'text-dark';
+  }
+}
+
+export function getRoleTextClass(role: string | null | undefined): string {
+  switch ((role || '').toUpperCase()) {
+    case 'EMPLOYEE':
+      return 'text-primary';
+    case 'MANAGER':
+      return 'text-info-emphasis';
+    case 'FINANCE':
+      return 'text-success';
+    case 'ADMIN':
+      return 'text-warning-emphasis';
+    default:
+      return 'text-dark';
+  }
+}
+
+export const DEFAULT_PREDEFINED_POLICIES: PredefinedTravelPolicyDto[] = [
+  { departmentName: 'Engineering', maxBudgetLimit: 2000, allowedTravelClass: TravelClass.ECONOMY },
+  { departmentName: 'Marketing', maxBudgetLimit: 3500, allowedTravelClass: TravelClass.PREMIUM_ECONOMY },
+  { departmentName: 'Sales', maxBudgetLimit: 5000, allowedTravelClass: TravelClass.BUSINESS }
+];
+
+export interface PolicyEvaluationResult {
+  policy: PredefinedTravelPolicyDto;
+  violated: boolean;
+  budgetExceeded: boolean;
+  classExceeded: boolean;
+  reason: string | null;
+}
+
+export function getPolicyForTravelClass(
+  travelClass: TravelClass | string | null | undefined,
+  policies?: PredefinedTravelPolicyDto[]
+): PredefinedTravelPolicyDto {
+  const tc = String(travelClass || TravelClass.ECONOMY).trim().toUpperCase();
+  const source = policies && policies.length > 0 ? policies : DEFAULT_PREDEFINED_POLICIES;
+  const match = source.find(p => String(p.allowedTravelClass).trim().toUpperCase() === tc)
+    || DEFAULT_PREDEFINED_POLICIES.find(p => String(p.allowedTravelClass).trim().toUpperCase() === tc);
+
+  if (match) {
+    return match;
+  }
+  return {
+    departmentName: 'Corporate',
+    maxBudgetLimit: 2000,
+    allowedTravelClass: TravelClass.ECONOMY
+  };
+}
+
+export function evaluateTravelPolicy(
+  travelClass: TravelClass | string | null | undefined,
+  estimatedBudget: number | null | undefined,
+  policies?: PredefinedTravelPolicyDto[]
+): PolicyEvaluationResult {
+  const policy = getPolicyForTravelClass(travelClass, policies);
+  const tcLabel = String(travelClass || policy.allowedTravelClass);
+  const budgetVal = Number(estimatedBudget);
+  const limitVal = Number(policy.maxBudgetLimit);
+  const budgetExceeded = !Number.isNaN(budgetVal) && budgetVal > limitVal;
+
+  const reason = budgetExceeded
+    ? `Estimated budget (₹${budgetVal.toFixed(2)}) exceeds ${tcLabel} travel class max budget limit (₹${limitVal.toFixed(2)})`
+    : null;
+
+  return {
+    policy,
+    violated: budgetExceeded,
+    budgetExceeded,
+    classExceeded: false,
+    reason
+  };
 }

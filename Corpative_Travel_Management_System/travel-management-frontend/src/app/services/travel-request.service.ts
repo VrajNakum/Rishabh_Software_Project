@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import {
   ApprovalActionDto,
   ApprovalAuditLogDto,
+  PredefinedTravelPolicyDto,
   TravelRequestCreateDto,
   TravelRequestResponseDto
 } from '../models/travel-request.model';
@@ -47,5 +48,9 @@ export class TravelRequestService {
 
   getAuditLogs(requestId: number): Observable<ApprovalAuditLogDto[]> {
     return this.http.get<ApprovalAuditLogDto[]>(`${this.baseUrl}/${requestId}/audit-logs`);
+  }
+
+  getPolicies(): Observable<PredefinedTravelPolicyDto[]> {
+    return this.http.get<PredefinedTravelPolicyDto[]>(`${this.baseUrl}/policies`);
   }
 }

@@ -39,7 +39,7 @@ describe('CostAndAnalyticsComponent', () => {
     expect(compiled.textContent).toContain('Total Requests');
     expect(compiled.textContent).toContain('10');
     expect(compiled.textContent).toContain('Engineering');
-    expect(compiled.textContent).toContain('$8,000.00');
+    expect(compiled.textContent).toContain('₹8,000.00');
   });
 
   it('should render gracefully with default zero values when costSummary is null', () => {
@@ -48,13 +48,13 @@ describe('CostAndAnalyticsComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Total Requests');
     expect(compiled.textContent).toContain('Reimbursed');
-    expect(compiled.textContent).toContain('$0.00');
+    expect(compiled.textContent).toContain('₹0.00');
   });
 
   it('should display department spend details and trip counts', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Engineering');
     expect(compiled.textContent).toContain('6 Trips');
-    expect(compiled.textContent).toContain('$5,000.00');
+    expect(compiled.textContent).toContain('₹5,000.00');
   });
 });

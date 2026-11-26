@@ -1,16 +1,16 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { finalize, skip } from 'rxjs';
 import { TravelRequestService } from './services/travel-request.service';
 import { ItineraryExpenseService } from './services/itinerary-expense.service';
 import { ReportService } from './services/report.service';
 import { UserContextService, CurrentUser } from './services/user-context.service';
 import { TravelClass, ExpenseCategory, ReimbursementStatus, Role, RequestStatus, SegmentType } from './models/enums.model';
-import { TravelRequestCreateDto, TravelRequestResponseDto, ApprovalAuditLogDto } from './models/travel-request.model';
+import { TravelRequestCreateDto, TravelRequestResponseDto, ApprovalAuditLogDto, PredefinedTravelPolicyDto } from './models/travel-request.model';
 import { ExpenseCreateDto, ExpenseResponseDto, ItinerarySegmentResponseDto, ItinerarySegmentRequestDto } from './models/itinerary-expense.model';
 import { CostSummaryReportDto, DepartmentSpendDto } from './models/reports.model';
-import { getStatusIcon, formatStatusLabel } from './shared/status-utils';
+import { getStatusIcon, formatStatusLabel, evaluateTravelPolicy, DEFAULT_PREDEFINED_POLICIES } from './shared/status-utils';
 import { MyRequestsAndNewTravelComponent } from './my-requests-and-new-travel/my-requests-and-new-travel.component';
 import { ApprovalQueueComponent } from './approval-queue/approval-queue.component';
 import { TripDetailsComponent } from './trip-details/trip-details.component';
@@ -19,6 +19,7 @@ import { AdminPortalComponent } from './admin-portal/admin-portal.component';
 import { LoginComponent } from './login/login.component';
 import { MyProfileComponent } from './my-profile/my-profile.component';
 import { NotificationCenterComponent } from './notifications/notification-center.component';
+import { EmployeeDetailsComponent } from './employee-details/employee-details.component';
 import { NotificationService } from './services/notification.service';
 import { AppNotification } from './models/notification.model';
 
@@ -35,13 +36,14 @@ import { AppNotification } from './models/notification.model';
     AdminPortalComponent,
     LoginComponent,
     MyProfileComponent,
-    NotificationCenterComponent
+    NotificationCenterComponent,
+    EmployeeDetailsComponent
   ],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
 export class App implements OnInit, OnDestroy {
-  activeTab: 'requests' | 'approvals' | 'trip-details' | 'reports' | 'notifications' | 'admin' | 'profile' = 'requests';
+  activeTab: 'requests' | 'approvals' | 'trip-details' | 'reports' | 'notifications' | 'employee-details' | 'admin' | 'profile' = 'requests';
   notificationFilter: 'ALL' | 'UNREAD' = 'ALL';
   currentUser: CurrentUser;
   isLoggedIn = false;
@@ -55,6 +57,7 @@ export class App implements OnInit, OnDestroy {
 
   // Requests Data
   requests: TravelRequestResponseDto[] = [];
+  policies: PredefinedTravelPolicyDto[] = [...DEFAULT_PREDEFINED_POLICIES];
   selectedRequest: TravelRequestResponseDto | null = null;
   auditLogs: ApprovalAuditLogDto[] = [];
   segments: ItinerarySegmentResponseDto[] = [];
@@ -172,6 +175,13 @@ export class App implements OnInit, OnDestroy {
       this.isLoggedIn = loggedIn;
     });
 
+    this.userContext.users$.subscribe(users => {
+      const adminIds = (users || [])
+        .filter(u => u.role === Role.ADMIN || (u.role as string) === 'ADMIN')
+        .map(u => u.id);
+      this.notificationService.setAdminUserIds(adminIds);
+    });
+
     this.userContext.currentUser$.subscribe(user => {
       this.currentUser = user;
       if (!this.editingDraftId) {
@@ -180,14 +190,34 @@ export class App implements OnInit, OnDestroy {
       if (!this.isAdmin && this.activeTab === 'admin') {
         this.activeTab = 'requests';
       }
+      if (!this.canViewEmployeeDetails && this.activeTab === 'employee-details') {
+        this.activeTab = 'requests';
+      }
       this.loadData();
     });
+
+    this.notificationService.notifications$?.pipe(skip(1)).subscribe(() => {
+      this.cdr.markForCheck();
+    });
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', this.handleWindowFocus);
+    }
   }
+
+  private handleWindowFocus = (): void => {
+    if (this.isLoggedIn && this.currentUser?.id) {
+      this.notificationService.refreshForUser?.(this.currentUser.id);
+    }
+  };
 
   ngOnDestroy(): void {
     if (this.splashTimeoutId) clearTimeout(this.splashTimeoutId);
     if (this.splashFadeTimeoutId) clearTimeout(this.splashFadeTimeoutId);
     if (this.alertTimeoutId) clearTimeout(this.alertTimeoutId);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('focus', this.handleWindowFocus);
+    }
   }
 
   // Status Filtering & Counts for Fast Visibility
@@ -289,8 +319,16 @@ export class App implements OnInit, OnDestroy {
     return this.currentUser?.role === Role.FINANCE || (this.currentUser?.role as string) === 'FINANCE';
   }
 
+  get isManager(): boolean {
+    return this.currentUser?.role === Role.MANAGER || (this.currentUser?.role as string) === 'MANAGER';
+  }
+
   get isEmployee(): boolean {
     return this.currentUser?.role === Role.EMPLOYEE || (this.currentUser?.role as string) === 'EMPLOYEE';
+  }
+
+  get canViewEmployeeDetails(): boolean {
+    return this.isManager || this.isFinance || this.isAdmin;
   }
 
   get canAddExpense(): boolean {
@@ -462,6 +500,21 @@ export class App implements OnInit, OnDestroy {
     this.isLoadingData = true;
     this.backendError = null;
     this.recalculateReports();
+    this.userContext.refreshUsers().subscribe();
+    if (this.currentUser?.id) {
+      this.notificationService.refreshForUser?.(this.currentUser.id);
+    }
+
+    this.travelRequestService.getPolicies?.().subscribe({
+      next: (data) => {
+        if (data && data.length > 0) {
+          this.policies = data;
+        }
+      },
+      error: () => {
+        // Keep default predefined policies on offline fallback
+      }
+    });
 
     this.travelRequestService.getAllRequests().subscribe({
       next: (data) => {
@@ -597,6 +650,9 @@ export class App implements OnInit, OnDestroy {
       return;
     }
 
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
     if (!draftMode) {
       if (!this.newRequest.destination?.trim()) {
         this.showAlert('Please provide a destination.', 'danger');
@@ -606,8 +662,12 @@ export class App implements OnInit, OnDestroy {
         this.showAlert('Please provide both start date and end date.', 'danger');
         return;
       }
-      if (new Date(this.newRequest.endDate) < new Date(this.newRequest.startDate)) {
-        this.showAlert('End date cannot be earlier than start date.', 'danger');
+      if (this.newRequest.startDate <= todayIso) {
+        this.showAlert('Start date must be after the current date.', 'danger');
+        return;
+      }
+      if (this.newRequest.endDate <= this.newRequest.startDate) {
+        this.showAlert('End date must be after the start date.', 'danger');
         return;
       }
       if (!this.newRequest.estimatedBudget || this.newRequest.estimatedBudget <= 0) {
@@ -619,9 +679,13 @@ export class App implements OnInit, OnDestroy {
         return;
       }
     } else {
+      if (this.newRequest.startDate && this.newRequest.startDate <= todayIso) {
+        this.showAlert('Start date must be after the current date.', 'danger');
+        return;
+      }
       if (this.newRequest.startDate && this.newRequest.endDate &&
-          new Date(this.newRequest.endDate) < new Date(this.newRequest.startDate)) {
-        this.showAlert('End date cannot be earlier than start date.', 'danger');
+          this.newRequest.endDate <= this.newRequest.startDate) {
+        this.showAlert('End date must be after the start date.', 'danger');
         return;
       }
     }
@@ -629,12 +693,21 @@ export class App implements OnInit, OnDestroy {
     const wasEditingDraft = this.editingDraftId !== null;
     const editingId = this.editingDraftId;
     const employeeId = this.newRequest.employeeId || this.currentUser.id;
+    const policyEval = evaluateTravelPolicy(
+      this.newRequest.travelClass,
+      this.newRequest.estimatedBudget,
+      this.policies
+    );
 
-    // 1. Instantly display success alert on button click!
-    const successMessage = draftMode
+    // 1. Instantly display success or policy violation warning alert on button click!
+    const baseMessage = draftMode
       ? (wasEditingDraft ? `Draft #${editingId} updated successfully!` : 'Draft saved successfully!')
       : (wasEditingDraft ? `Draft #${editingId} submitted for approval successfully!` : 'Travel request submitted successfully!');
-    this.showAlert(successMessage, 'success');
+    if (policyEval.violated) {
+      this.showAlert(`${baseMessage} Flagged Policy Violation: ${policyEval.reason}`, 'warning', false);
+    } else {
+      this.showAlert(baseMessage, 'success');
+    }
 
     // 2. Prepare payload
     const payload: TravelRequestCreateDto = {
@@ -669,8 +742,8 @@ export class App implements OnInit, OnDestroy {
       managerName: this.currentUser.managerName ?? null,
       financeId: this.currentUser.financeId ?? null,
       financeName: this.currentUser.financeName ?? null,
-      policyViolated: false,
-      policyViolationReason: undefined,
+      policyViolated: policyEval.violated,
+      policyViolationReason: policyEval.reason ?? undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -705,6 +778,9 @@ export class App implements OnInit, OnDestroy {
     requestObservable.subscribe({
       next: (saved) => {
         if (saved && saved.id) {
+          if (!wasEditingDraft && !draftMode) {
+            this.notificationService.updateNotificationRequestId(tempId, saved.id);
+          }
           this.requests = this.requests.map(r => (r.id === tempId || r.id === editingId) ? saved : r);
           // Automatically seed initial travel itinerary segment into PostgreSQL database
           if (!wasEditingDraft && !draftMode) {
@@ -727,6 +803,7 @@ export class App implements OnInit, OnDestroy {
       error: (err) => {
         if (!wasEditingDraft) {
           this.requests = this.requests.filter(r => r.id !== tempId);
+          this.notificationService.removeNotificationsForRequest(tempId);
         }
         const errMsg = this.extractErrorMessage(
           err,
@@ -794,20 +871,36 @@ export class App implements OnInit, OnDestroy {
 
     // 2. Optimistically update request status in local memory immediately!
     if (target) {
+      const previousStatus = target.status;
       const nextStatus = action === 'REJECT'
         ? RequestStatus.REJECTED
-        : (this.isFinance ? RequestStatus.APPROVED : RequestStatus.PENDING_FINANCE);
+        : (previousStatus === RequestStatus.PENDING_FINANCE || this.isFinance
+            ? RequestStatus.APPROVED
+            : RequestStatus.PENDING_FINANCE);
       target.status = nextStatus;
       if (action === 'REJECT') {
         target.policyViolationReason = `Rejected by ${this.currentUser.fullName}: "${finalComment}"`;
       }
       if (this.selectedRequest && this.selectedRequest.id === requestId) {
         this.selectedRequest.status = nextStatus;
+        if (action === 'REJECT') {
+          this.selectedRequest.policyViolationReason = target.policyViolationReason;
+        }
       }
 
-      // Send workflow notifications to Employee, Manager, and Finance
+      const mgr = this.userContext.getAssignedManagerForRequest(target);
+      const fin = this.userContext.getAssignedFinanceForRequest(target);
+      const enrichedTarget: TravelRequestResponseDto = {
+        ...target,
+        managerId: target.managerId ?? mgr.id ?? undefined,
+        managerName: target.managerName ?? mgr.name ?? undefined,
+        financeId: target.financeId ?? fin.id ?? undefined,
+        financeName: target.financeName ?? fin.name ?? undefined
+      };
+
+      // Send workflow notifications to Employee, Manager, Finance, and System Admins
       this.notificationService.notifyRequestReviewed(
-        target,
+        enrichedTarget,
         this.currentUser,
         action,
         finalComment
@@ -1204,7 +1297,7 @@ export class App implements OnInit, OnDestroy {
     const claimSnapshot = { ...this.expenseClaim };
 
     // 1. Instantly display success alert on button click!
-    this.showAlert(`Expense claim of $${claimSnapshot.amount} (${claimSnapshot.category}) submitted successfully! Awaiting Finance approval.`, 'success');
+    this.showAlert(`Expense claim of ₹${claimSnapshot.amount} (${claimSnapshot.category}) submitted successfully! Awaiting Finance approval.`, 'success');
 
     // 2. Instantly reset form and push to expenses list optimistically
     this.expenseClaim = {
@@ -1310,6 +1403,17 @@ export class App implements OnInit, OnDestroy {
         this.saveStoredExpenses(this.selectedRequest.id, this.expenses);
       }
     }
+    if (this.selectedRequest) {
+      const mgr = this.userContext.getAssignedManagerForRequest(this.selectedRequest);
+      this.notificationService.notifyExpenseReviewed(
+        expenseId,
+        target?.amount,
+        target?.category,
+        { ...this.selectedRequest, managerId: this.selectedRequest.managerId ?? mgr.id ?? undefined },
+        this.currentUser,
+        'APPROVED'
+      );
+    }
     this.recalculateReports();
     this.cdr.detectChanges();
 
@@ -1345,6 +1449,17 @@ export class App implements OnInit, OnDestroy {
         this.saveStoredExpenses(this.selectedRequest.id, this.expenses);
       }
     }
+    if (this.selectedRequest) {
+      const mgr = this.userContext.getAssignedManagerForRequest(this.selectedRequest);
+      this.notificationService.notifyExpenseReviewed(
+        expenseId,
+        target?.amount,
+        target?.category,
+        { ...this.selectedRequest, managerId: this.selectedRequest.managerId ?? mgr.id ?? undefined },
+        this.currentUser,
+        'REJECTED'
+      );
+    }
     this.recalculateReports();
     this.cdr.detectChanges();
 
@@ -1379,6 +1494,17 @@ export class App implements OnInit, OnDestroy {
       if (this.selectedRequest) {
         this.saveStoredExpenses(this.selectedRequest.id, this.expenses);
       }
+    }
+    if (this.selectedRequest) {
+      const mgr = this.userContext.getAssignedManagerForRequest(this.selectedRequest);
+      this.notificationService.notifyExpenseReviewed(
+        expenseId,
+        target?.amount,
+        target?.category,
+        { ...this.selectedRequest, managerId: this.selectedRequest.managerId ?? mgr.id ?? undefined },
+        this.currentUser,
+        'REIMBURSED'
+      );
     }
     this.recalculateReports();
     this.cdr.detectChanges();
@@ -1500,7 +1626,7 @@ export class App implements OnInit, OnDestroy {
 
     // 1. Instantly display success feedback
     this.showAlert(
-      `Reimbursement claim record for Trip #${req.id} ($${totalAmount.toFixed(2)}) submitted exclusively to Assigned Finance Officer ${finName} for payout processing!`,
+      `Reimbursement claim record for Trip #${req.id} (₹${totalAmount.toFixed(2)}) submitted exclusively to Assigned Finance Officer ${finName} for payout processing!`,
       'success'
     );
 
@@ -1511,7 +1637,7 @@ export class App implements OnInit, OnDestroy {
         senderUserId: this.currentUser.id,
         senderName: this.currentUser.fullName,
         title: `Reimbursement Payout Request: Trip #${req.id}`,
-        message: `${this.currentUser.fullName} submitted the expense claim record ($${totalAmount.toFixed(2)}) for Trip #${req.id} (${req.destination}) exclusively to you for reimbursement payout.`,
+        message: `${this.currentUser.fullName} submitted the expense claim record (₹${totalAmount.toFixed(2)}) for Trip #${req.id} (${req.destination}) exclusively to you for reimbursement payout.`,
         requestId: req.id,
         type: 'EXPENSE'
       });
@@ -1522,10 +1648,24 @@ export class App implements OnInit, OnDestroy {
       senderUserId: this.currentUser.id,
       senderName: 'System',
       title: `Reimbursement Request Submitted: Trip #${req.id}`,
-      message: `Your claim record ($${totalAmount.toFixed(2)}) for ${req.destination} was submitted exclusively to your assigned Finance Officer ${finName} for reimbursement payout processing.`,
+      message: `Your claim record (₹${totalAmount.toFixed(2)}) for ${req.destination} was submitted exclusively to your assigned Finance Officer ${finName} for reimbursement payout processing.`,
       requestId: req.id,
       type: 'EXPENSE'
     });
+
+    for (const adminId of this.notificationService.getAdminUserIds()) {
+      if (adminId !== this.currentUser.id && adminId !== fin.id) {
+        this.notificationService.sendNotification({
+          recipientUserId: adminId,
+          senderUserId: this.currentUser.id,
+          senderName: this.currentUser.fullName,
+          title: `Reimbursement Payout Requested: Trip #${req.id}`,
+          message: `${this.currentUser.fullName} submitted an expense reimbursement claim (₹${totalAmount.toFixed(2)}) for Trip #${req.id} to Finance Officer ${finName}.`,
+          requestId: req.id,
+          type: 'EXPENSE'
+        });
+      }
+    }
 
     this.isSubmittingReimbursement = false;
     this.cdr.detectChanges();
@@ -1535,9 +1675,13 @@ export class App implements OnInit, OnDestroy {
     this.switchTab('admin');
   }
 
-  switchTab(tab: 'requests' | 'approvals' | 'trip-details' | 'reports' | 'notifications' | 'admin' | 'profile'): void {
+  switchTab(tab: 'requests' | 'approvals' | 'trip-details' | 'reports' | 'notifications' | 'employee-details' | 'admin' | 'profile'): void {
     if (tab === 'admin' && !this.isAdmin) {
       this.showAlert('Unauthorized access: The Admin Portal is restricted to Administrators only.', 'danger');
+      return;
+    }
+    if (tab === 'employee-details' && !this.canViewEmployeeDetails) {
+      this.showAlert('Unauthorized access: View Employee Details is restricted to Manager, Finance, and Admin personnel only.', 'danger');
       return;
     }
     if (tab === 'trip-details' && !this.selectedRequest) {
@@ -1547,6 +1691,10 @@ export class App implements OnInit, OnDestroy {
     this.activeTab = tab;
     if (tab === 'reports') {
       this.recalculateReports();
+    } else if (tab === 'employee-details') {
+      this.userContext.refreshUsers().subscribe();
+    } else if ((tab === 'notifications' || tab === 'approvals') && this.currentUser?.id) {
+      this.notificationService.refreshForUser?.(this.currentUser.id);
     }
     this.cdr.detectChanges();
   }
@@ -1641,6 +1789,13 @@ export class App implements OnInit, OnDestroy {
     this.showAlert(`Assignments updated for '${updatedUser.fullName}'! Manager: ${mgrInfo} | Finance: ${finInfo}`, 'success');
   }
 
+  onUserRoleUpdated(updatedUser: CurrentUser): void {
+    if (this.currentUser && this.currentUser.id === updatedUser.id) {
+      this.currentUser = { ...this.currentUser, ...updatedUser };
+    }
+    this.showAlert(`Access role updated for '${updatedUser.fullName}' to ${updatedUser.role}!`, 'success');
+  }
+
   onProfileUpdated(updatedUser: CurrentUser): void {
     this.currentUser = updatedUser;
 
@@ -1717,7 +1872,7 @@ export class App implements OnInit, OnDestroy {
     if (!target) return;
 
     // 1. Instantly display success alert on button click!
-    this.showAlert(`Estimated Budget for Request #${event.requestId} updated to $${event.newBudget.toFixed(2)} successfully!`, 'success');
+    this.showAlert(`Estimated Budget for Request #${event.requestId} updated to ₹${event.newBudget.toFixed(2)} successfully!`, 'success');
 
     // 2. Instantly update local model
     target.estimatedBudget = event.newBudget;

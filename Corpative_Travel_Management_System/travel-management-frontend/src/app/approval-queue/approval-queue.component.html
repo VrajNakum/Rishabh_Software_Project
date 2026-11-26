@@ -6,12 +6,12 @@
         Showing travel requests in the approval pipeline for <strong>{{ currentUser.fullName }}</strong> ({{ currentUser.role }})
       </small>
     </div>
-    <div class="d-flex align-items-center gap-2">
-      <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1">
-        <i class="bi bi-person-badge me-1"></i> User: {{ currentUser?.fullName }} ({{ currentUser?.role }})
+    <div class="d-flex align-items-center gap-3">
+      <span class="fw-semibold small text-primary">
+        User: {{ currentUser?.fullName }} ({{ currentUser?.role }})
       </span>
-      <span class="badge bg-light text-dark border px-2.5 py-1">
-        Showing: {{ filteredRequests.length }} of {{ requests.length }}
+      <span class="fw-semibold small text-muted">
+        Showing: {{ filteredRequests.length }}<ng-container *ngIf="!isEmployee"> of {{ requests.length }}</ng-container>
       </span>
     </div>
   </div>
@@ -21,20 +21,21 @@
     <div class="btn-group btn-group-sm shadow-sm" role="group" aria-label="Approval Queue Scope">
       <button type="button" 
               class="btn" 
-              [ngClass]="queueScope === 'ASSIGNED' ? 'btn-primary' : 'btn-outline-secondary'"
+              [ngClass]="(isEmployee || queueScope === 'ASSIGNED') ? 'btn-primary' : 'btn-outline-secondary'"
               (click)="queueScope = 'ASSIGNED'">
         <i class="bi bi-person-check me-1"></i>
-        {{ currentUser?.role === 'EMPLOYEE' ? 'My Requests in Queue' : 'Assigned to Me' }}
-        <span class="badge bg-white text-dark ms-1" *ngIf="queueScope === 'ASSIGNED'">{{ filteredRequests.length }}</span>
+        {{ isEmployee ? 'My Requests in Queue' : 'Assigned to Me' }}
+        <span class="badge bg-white text-dark ms-1" *ngIf="isEmployee || queueScope === 'ASSIGNED'">{{ filteredRequests.length }}</span>
       </button>
-      <button type="button" 
+      <button *ngIf="!isEmployee"
+              type="button" 
               class="btn" 
               [ngClass]="queueScope === 'ALL' ? 'btn-primary' : 'btn-outline-secondary'"
               (click)="queueScope = 'ALL'">
         <i class="bi bi-collection me-1"></i> All Queue Requests
         <span class="badge ms-1" [ngClass]="queueScope === 'ALL' ? 'bg-white text-dark' : 'bg-secondary text-white'">{{ requests.length }}</span>
       </button>
-      <button *ngIf="currentUser?.role !== 'EMPLOYEE'"
+      <button *ngIf="!isEmployee"
               type="button" 
               class="btn" 
               [ngClass]="queueScope === 'MY_REQUESTS' ? 'btn-primary' : 'btn-outline-secondary'"
@@ -45,7 +46,7 @@
 
     <div class="d-flex align-items-center gap-2 text-muted small">
       <i class="bi bi-info-circle text-primary"></i>
-      <span>Filter: <strong>{{ queueScope === 'ALL' ? 'All Corporate Requests' : (queueScope === 'MY_REQUESTS' ? 'My Submitted Trips' : (currentUser?.role === 'EMPLOYEE' ? 'My Requests in Queue' : 'Assigned to Me')) }}</strong></span>
+      <span>Filter: <strong>{{ isEmployee ? 'My Requests in Queue' : (queueScope === 'ALL' ? 'All Corporate Requests' : (queueScope === 'MY_REQUESTS' ? 'My Submitted Trips' : 'Assigned to Me')) }}</strong></span>
     </div>
   </div>
 
@@ -74,8 +75,8 @@
           <th>Dept</th>
           <th>Destination</th>
           <th>Budget</th>
-          <th>Assigned Manager</th>
-          <th>Assigned Finance</th>
+          <th *ngIf="!isEmployee">Assigned Manager</th>
+          <th *ngIf="!isEmployee">Assigned Finance</th>
           <th>Status</th>
           <th>Policy Reason</th>
           <th>Trip Details</th>
@@ -88,24 +89,22 @@
           <td>
             <div class="fw-semibold text-dark">{{ req.employeeName }}</div>
           </td>
-          <td><span class="badge bg-light text-dark border">{{ req.departmentName }}</span></td>
-          <td>{{ req.destination }}</td>
-          <td><strong>${{ req.estimatedBudget | number:'1.2-2' }}</strong></td>
           <td>
-            <span class="small d-inline-flex align-items-center gap-1">
-              <i class="bi bi-person-up text-primary"></i>
-              <strong [class.text-primary]="currentUser?.id === userContext.getAssignedManagerForRequest(req).id">
-                {{ getAssignedManagerName(req) }}
-              </strong>
+            <span class="fw-semibold small" [ngClass]="getDepartmentTextClass(req.departmentName)">
+              {{ req.departmentName }}
             </span>
           </td>
-          <td>
-            <span class="small d-inline-flex align-items-center gap-1">
-              <i class="bi bi-cash-coin text-success"></i>
-              <strong [class.text-success]="currentUser?.id === userContext.getAssignedFinanceForRequest(req).id">
-                {{ getAssignedFinanceName(req) }}
-              </strong>
-            </span>
+          <td>{{ req.destination }}</td>
+          <td><strong>₹{{ req.estimatedBudget | number:'1.2-2' }}</strong></td>
+          <td *ngIf="!isEmployee">
+            <strong class="small" [class.text-primary]="currentUser?.id === userContext.getAssignedManagerForRequest(req).id">
+              {{ getAssignedManagerName(req) }}
+            </strong>
+          </td>
+          <td *ngIf="!isEmployee">
+            <strong class="small" [class.text-success]="currentUser?.id === userContext.getAssignedFinanceForRequest(req).id">
+              {{ getAssignedFinanceName(req) }}
+            </strong>
           </td>
           <td>
             <!-- Status Label (Clean Font & Color) -->
@@ -113,8 +112,8 @@
               {{ formatStatusLabel(req.status) }}
             </span>
             <div *ngIf="isReimbursementRequested(req.id)" class="mt-1">
-              <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle d-inline-flex align-items-center gap-1 small" style="font-size: 0.72rem;">
-                <i class="bi bi-cash-stack"></i> Reimbursement Claim
+              <span class="fw-semibold small text-warning-emphasis" style="font-size: 0.72rem;">
+                Reimbursement Claim
               </span>
             </div>
           </td>
@@ -127,11 +126,11 @@
                     [title]="isReimbursementRequested(req.id) ? 'Review Active Reimbursement Claim for Request #' + req.id : 'View Trip Details, Expenses & Claims for Request #' + req.id">
               <i class="bi" [ngClass]="isReimbursementRequested(req.id) ? 'bi-wallet2' : 'bi-journal-text'"></i>
               <span>{{ isReimbursementRequested(req.id) && currentUser?.role === 'FINANCE' ? 'Review Claim' : 'Trip Details' }}</span>
-              <span *ngIf="isReimbursementRequested(req.id)" class="badge bg-white text-success border ms-1" style="font-size: 0.7rem;">
-                Active
+              <span *ngIf="isReimbursementRequested(req.id)" class="small fw-semibold ms-1">
+                (Active)
               </span>
-              <span *ngIf="!isReimbursementRequested(req.id) && currentUser?.role === 'FINANCE'" class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1" style="font-size: 0.7rem;">
-                <i class="bi bi-receipt me-0.5"></i> Claims
+              <span *ngIf="!isReimbursementRequested(req.id) && currentUser?.role === 'FINANCE'" class="small fw-semibold text-primary ms-1">
+                (Claims)
               </span>
             </button>
           </td>
@@ -149,14 +148,13 @@
               </button>
             </div>
             <div *ngIf="(req.status === 'PENDING_MANAGER' || req.status === 'PENDING_FINANCE') && !canApprove(req)">
-              <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle py-1 px-2 small">
-                <i class="bi bi-hourglass-split me-1"></i>
-                {{ req.status === 'PENDING_MANAGER' ? 'Awaiting ' + getAssignedManagerName(req) : 'Awaiting ' + getAssignedFinanceName(req) }}
+              <span class="fw-semibold small text-warning-emphasis">
+                {{ isEmployee ? (req.status === 'PENDING_MANAGER' ? 'Awaiting Manager' : 'Awaiting Finance') : (req.status === 'PENDING_MANAGER' ? 'Awaiting ' + getAssignedManagerName(req) : 'Awaiting ' + getAssignedFinanceName(req)) }}
               </span>
             </div>
             <div class="d-flex align-items-center gap-2" *ngIf="req.status !== 'PENDING_MANAGER' && req.status !== 'PENDING_FINANCE'">
-              <span *ngIf="isReimbursementRequested(req.id) && currentUser?.role === 'FINANCE'" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle py-1 px-2 small">
-                <i class="bi bi-clock-history me-1"></i> Awaiting Payout
+              <span *ngIf="isReimbursementRequested(req.id) && currentUser?.role === 'FINANCE'" class="fw-semibold small text-warning-emphasis">
+                Awaiting Payout
               </span>
               <span *ngIf="!isReimbursementRequested(req.id) || currentUser?.role !== 'FINANCE'" class="text-muted small">
                 {{ req.status === 'APPROVED' ? 'Approved' : (req.status === 'REJECTED' ? 'Rejected' : 'Draft') }}
@@ -172,16 +170,19 @@
         </tr>
 
       <tr *ngIf="filteredRequests.length === 0">
-          <td colspan="11" class="text-center py-5 text-muted">
+          <td [attr.colspan]="isEmployee ? 9 : 11" class="text-center py-5 text-muted">
             <i class="bi bi-inbox fs-2 text-secondary d-block mb-2"></i>
             <h6 class="fw-bold text-dark mb-1">No Travel Requests Found in this View</h6>
-            <p class="small text-muted mb-3" *ngIf="queueScope === 'ASSIGNED'">
+            <p class="small text-muted mb-0" *ngIf="isEmployee">
+              You have not submitted any travel requests yet.
+            </p>
+            <p class="small text-muted mb-3" *ngIf="!isEmployee && queueScope === 'ASSIGNED'">
               You have no requests directly assigned to you for action right now.
             </p>
-            <p class="small text-muted mb-3" *ngIf="queueScope === 'MY_REQUESTS'">
+            <p class="small text-muted mb-3" *ngIf="!isEmployee && queueScope === 'MY_REQUESTS'">
               You have not submitted any travel requests into the approval queue yet.
             </p>
-            <div class="d-flex justify-content-center gap-2" *ngIf="queueScope !== 'ALL' && requests.length > 0">
+            <div class="d-flex justify-content-center gap-2" *ngIf="!isEmployee && queueScope !== 'ALL' && requests.length > 0">
               <button type="button" class="btn btn-sm btn-primary shadow-sm" (click)="queueScope = 'ALL'">
                 <i class="bi bi-collection me-1"></i> View All {{ requests.length }} Approval Queue Requests
               </button>
@@ -232,7 +233,7 @@
         </div>
         <div class="col-md-4 col-sm-12">
           <span class="text-muted small d-block">Estimated Budget</span>
-          <strong class="text-primary fs-5">${{ rejectingRequest.estimatedBudget | number:'1.2-2' }}</strong>
+          <strong class="text-primary fs-5">₹{{ rejectingRequest.estimatedBudget | number:'1.2-2' }}</strong>
           <div class="small text-muted">Class: {{ rejectingRequest.travelClass }}</div>
         </div>
       </div>
@@ -244,7 +245,7 @@
             <i class="bi bi-chat-left-dots-fill text-danger me-1"></i> 
             Rejection Comment / Reason for Employee <span class="text-danger">*</span>
           </span>
-          <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">Required</span>
+          <span class="fw-semibold small text-danger">Required</span>
         </label>
         <textarea class="form-control" 
                   rows="4" 

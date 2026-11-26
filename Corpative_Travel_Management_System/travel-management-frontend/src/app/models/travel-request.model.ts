@@ -51,3 +51,9 @@ export interface ApprovalAuditLogDto {
   comments: string;
   actionTimestamp: string;
 }
+
+export interface PredefinedTravelPolicyDto {
+  departmentName: string;
+  maxBudgetLimit: number;
+  allowedTravelClass: TravelClass;
+}

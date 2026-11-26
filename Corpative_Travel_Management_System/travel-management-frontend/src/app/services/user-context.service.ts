@@ -1,5 +1,5 @@
 import { Injectable, Optional } from '@angular/core';
-import { BehaviorSubject, Observable, of, catchError, tap, map } from 'rxjs';
+import { BehaviorSubject, Observable, of, throwError, forkJoin, catchError, tap, map } from 'rxjs';
 import { Role } from '../models/enums.model';
 import { UserService, UserCreatePayload } from './user.service';
 
@@ -48,6 +48,7 @@ const DEFAULT_USERS: CurrentUser[] = [
 export class UserContextService {
   private readonly STORAGE_KEY = 'tms_logged_in_user_id';
   private readonly USERS_DB_STORAGE_KEY = 'tms_corporate_users_database';
+  private readonly UNSYNCED_USERS_STORAGE_KEY = 'tms_unsynced_local_users';
   private usersList: CurrentUser[] = [...DEFAULT_USERS];
 
   private usersSubject = new BehaviorSubject<CurrentUser[]>(this.usersList);
@@ -58,6 +59,15 @@ export class UserContextService {
 
   private isLoggedInSubject = new BehaviorSubject<boolean>(false);
   isLoggedIn$ = this.isLoggedInSubject.asObservable();
+
+  private backendConnectedSubject = new BehaviorSubject<boolean>(false);
+  backendConnected$ = this.backendConnectedSubject.asObservable();
+
+  private backendSyncErrorSubject = new BehaviorSubject<string | null>(null);
+  backendSyncError$ = this.backendSyncErrorSubject.asObservable();
+
+  private unsyncedUsersSubject = new BehaviorSubject<CurrentUser[]>([]);
+  unsyncedUsers$ = this.unsyncedUsersSubject.asObservable();
 
   constructor(@Optional() private userService?: UserService) {
     this.loadUsersFromStorage();
@@ -87,6 +97,13 @@ export class UserContextService {
             this.currentUserSubject.next(this.usersList[0]);
           }
         }
+        const storedUnsynced = window.localStorage.getItem(this.UNSYNCED_USERS_STORAGE_KEY);
+        if (storedUnsynced) {
+          const parsedUnsynced = JSON.parse(storedUnsynced);
+          if (Array.isArray(parsedUnsynced)) {
+            this.unsyncedUsersSubject.next(parsedUnsynced);
+          }
+        }
       }
     } catch {
       // ignore
@@ -103,16 +120,102 @@ export class UserContextService {
     }
   }
 
+  private saveUnsyncedUsersToStorage(users: CurrentUser[]): void {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        if (users.length === 0) {
+          window.localStorage.removeItem(this.UNSYNCED_USERS_STORAGE_KEY);
+        } else {
+          window.localStorage.setItem(this.UNSYNCED_USERS_STORAGE_KEY, JSON.stringify(users));
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   private initUsers(): void {
-    if (this.userService) {
-      this.userService.getAllUsers().pipe(
-        catchError(() => of([]))
-      ).subscribe(serverUsers => {
+    this.refreshUsers().subscribe();
+  }
+
+  get isBackendConnected(): boolean {
+    return this.backendConnectedSubject.value;
+  }
+
+  get backendSyncError(): string | null {
+    return this.backendSyncErrorSubject.value;
+  }
+
+  get unsyncedUsers(): CurrentUser[] {
+    return this.unsyncedUsersSubject.value;
+  }
+
+  refreshUsers(): Observable<CurrentUser[]> {
+    if (!this.userService) {
+      return of(this.usersList);
+    }
+
+    return this.userService.getAllUsers().pipe(
+      tap(serverUsers => {
+        this.backendConnectedSubject.next(true);
+        this.backendSyncErrorSubject.next(null);
+
         if (serverUsers && serverUsers.length > 0) {
+          const defaultEmails = new Set(DEFAULT_USERS.map(u => u.email.toLowerCase()));
+          const serverEmails = new Set(serverUsers.map(u => u.email.toLowerCase()));
+
+          const mergedUnsynced = [...this.unsyncedUsersSubject.value, ...this.usersList].filter((u, idx, arr) => {
+            const email = (u.email || '').toLowerCase();
+            return email &&
+              !defaultEmails.has(email) &&
+              !serverEmails.has(email) &&
+              arr.findIndex(x => (x.email || '').toLowerCase() === email) === idx;
+          });
+
+          this.unsyncedUsersSubject.next(mergedUnsynced);
+          this.saveUnsyncedUsersToStorage(mergedUnsynced);
           this.setUsers(serverUsers);
         }
-      });
+      }),
+      catchError(err => {
+        this.backendConnectedSubject.next(false);
+        this.backendSyncErrorSubject.next(
+          this.extractBackendErrorMessage(err, 'Unable to reach backend database at http://localhost:8080/api/users.')
+        );
+        return of([]);
+      })
+    );
+  }
+
+  private extractBackendErrorMessage(err: any, fallback: string): string {
+    if (!err) return fallback;
+    if (err.status === 0) {
+      return 'Backend server is unreachable (http://localhost:8080). Please ensure travel-management-backend and PostgreSQL are running.';
     }
+    if (err.error) {
+      if (err.error.errors && typeof err.error.errors === 'object') {
+        const details = Object.entries(err.error.errors)
+          .map(([field, msg]) => `${field}: ${msg}`)
+          .join(', ');
+        return `Validation failed: ${details}`;
+      }
+      if (err.error.fieldErrors && typeof err.error.fieldErrors === 'object') {
+        const details = Object.entries(err.error.fieldErrors)
+          .map(([field, msg]) => `${field}: ${msg}`)
+          .join(', ');
+        return `Validation failed: ${details}`;
+      }
+      if (typeof err.error.message === 'string' && err.error.message.trim().length > 0) {
+        return err.error.message;
+      }
+      if (typeof err.error === 'string' && err.error.trim().length > 0) {
+        return err.error;
+      }
+    }
+    if (err.message && typeof err.message === 'string') {
+      return err.message;
+    }
+    return fallback;
   }
 
   get isLoggedIn(): boolean {
@@ -331,7 +434,10 @@ export class UserContextService {
     this.saveUsersToStorage();
     this.usersSubject.next(this.usersList);
     const current = this.currentUserSubject.value;
-    const exists = this.usersList.find(u => u.id === current.id);
+    const matchByEmail = current?.email
+      ? this.usersList.find(u => u.email.toLowerCase() === current.email.toLowerCase())
+      : undefined;
+    const exists = matchByEmail || this.usersList.find(u => u.id === current.id);
     if (!exists && this.usersList.length > 0) {
       this.currentUserSubject.next(this.usersList[0]);
     }
@@ -416,6 +522,71 @@ export class UserContextService {
     }
 
     return of(localUpdated);
+  }
+
+  updateUserRole(userId: number, newRole: Role): Observable<CurrentUser> {
+    const localUpdated = this.applyUserRoleLocally(userId, newRole);
+
+    // Include managerId and financeId so backend PUT /api/users/{id} preserves existing assignments.
+    const payload: Partial<UserCreatePayload> = {
+      role: newRole,
+      managerId: localUpdated.managerId ?? null,
+      financeId: localUpdated.financeId ?? null
+    };
+
+    if (this.userService) {
+      return this.userService.updateUser(userId, payload).pipe(
+        map((resp) => {
+          if (resp) {
+            if (resp.role) localUpdated.role = resp.role;
+            if (resp.managerName !== undefined) localUpdated.managerName = resp.managerName;
+            if (resp.financeName !== undefined) localUpdated.financeName = resp.financeName;
+          }
+          this.addUserLocally(localUpdated);
+          if (this.currentUserSubject.value.id === localUpdated.id) {
+            this.currentUserSubject.next({ ...localUpdated });
+          }
+          return localUpdated;
+        }),
+        catchError((err) => {
+          console.warn('Backend role update failed, kept local role:', err);
+          return of(localUpdated);
+        })
+      );
+    }
+
+    return of(localUpdated);
+  }
+
+  applyUserRoleLocally(userId: number, newRole: Role): CurrentUser {
+    const user = this.usersList.find(u => Number(u.id) === Number(userId));
+    if (!user) {
+      throw new Error(`User with ID #${userId} not found.`);
+    }
+
+    user.role = newRole;
+
+    if (newRole !== Role.FINANCE && user.financeId === user.id) {
+      user.financeId = null;
+      user.financeName = null;
+    }
+    if (newRole !== Role.MANAGER && user.managerId === user.id) {
+      user.managerId = null;
+      user.managerName = null;
+    }
+    if (newRole === Role.FINANCE && !user.financeId) {
+      user.financeName = 'Self (Finance Officer)';
+    } else if (newRole !== Role.FINANCE && user.financeName === 'Self (Finance Officer)' && !user.financeId) {
+      user.financeName = null;
+    }
+
+    this.addUserLocally(user);
+
+    if (this.currentUserSubject.value.id === user.id) {
+      this.currentUserSubject.next({ ...user });
+    }
+
+    return user;
   }
 
   applyUserAssignmentsLocally(userId: number, managerId: number | null, financeId: number | null): CurrentUser {
@@ -553,28 +724,31 @@ export class UserContextService {
   }
 
   createUser(payload: UserCreatePayload): Observable<CurrentUser> {
-    const defaultManager = this.usersList.find(u => u.role === Role.MANAGER) || this.usersList.find(u => u.id === 1);
-    const defaultFinance = this.usersList.find(u => u.role === Role.FINANCE) || this.usersList.find(u => u.id === 3);
+    const defaultManager = this.usersList.find(u => u.role === Role.MANAGER);
+    const defaultFinance = this.usersList.find(u => u.role === Role.FINANCE);
 
-    // If no reporting manager provided/selected, default to user1manager (Bob Miller, id: 1)
-    if (payload.role === Role.EMPLOYEE && (payload.managerId === null || payload.managerId === undefined)) {
-      payload.managerId = defaultManager ? defaultManager.id : 1;
+    if (payload.managerId === null || payload.managerId === undefined) {
+      payload.managerId = defaultManager ? defaultManager.id : null;
     }
 
-    // If no finance officer provided/selected, default to user1finance (Carol Davis, id: 3)
-    if (payload.role !== Role.FINANCE && (payload.financeId === null || payload.financeId === undefined)) {
-      payload.financeId = defaultFinance ? defaultFinance.id : 3;
+    if (payload.financeId === null || payload.financeId === undefined) {
+      payload.financeId = defaultFinance ? defaultFinance.id : null;
     }
 
     if (this.userService) {
       return this.userService.createUser(payload).pipe(
         tap(created => {
+          this.backendConnectedSubject.next(true);
+          this.backendSyncErrorSubject.next(null);
           this.addUserLocally(created);
         }),
         catchError(err => {
-          // If backend fails (e.g., offline or network error), fall back to local creation
-          const fallbackUser = this.createLocalUser(payload);
-          return of(fallbackUser);
+          const message = this.extractBackendErrorMessage(err, 'Failed to create user in database.');
+          if (err?.status === 0) {
+            this.backendConnectedSubject.next(false);
+            this.backendSyncErrorSubject.next(message);
+          }
+          return throwError(() => new Error(message));
         })
       );
     }
@@ -583,19 +757,73 @@ export class UserContextService {
     return of(localUser);
   }
 
+  syncUnsyncedUsers(): Observable<{ syncedCount: number; failed: { user: CurrentUser; error: string }[] }> {
+    const pending = [...this.unsyncedUsersSubject.value];
+    if (!this.userService || pending.length === 0) {
+      return of({ syncedCount: 0, failed: [] });
+    }
+
+    const validManagerIds = new Set(this.usersList.filter(u => u.role === Role.MANAGER).map(u => u.id));
+    const validFinanceIds = new Set(this.usersList.filter(u => u.role === Role.FINANCE).map(u => u.id));
+    const fallbackManagerId = this.usersList.find(u => u.role === Role.MANAGER)?.id ?? null;
+    const fallbackFinanceId = this.usersList.find(u => u.role === Role.FINANCE)?.id ?? null;
+
+    const requests = pending.map(u => {
+      const payload: UserCreatePayload = {
+        fullName: u.fullName,
+        email: u.email,
+        password: u.password && u.password.trim().length >= 4 ? u.password.trim() : 'User@1234',
+        role: u.role,
+        departmentName: u.departmentName || 'Engineering',
+        managerId: u.managerId && validManagerIds.has(u.managerId) ? u.managerId : fallbackManagerId,
+        financeId: u.financeId && validFinanceIds.has(u.financeId) ? u.financeId : fallbackFinanceId
+      };
+
+      return this.userService!.createUser(payload).pipe(
+        map(created => ({ ok: true as const, created, source: u })),
+        catchError(err => of({
+          ok: false as const,
+          source: u,
+          error: this.extractBackendErrorMessage(err, 'Failed to sync user')
+        }))
+      );
+    });
+
+    return forkJoin(requests).pipe(
+      tap(results => {
+        const remaining: CurrentUser[] = [];
+        for (const r of results) {
+          if (r.ok) {
+            this.addUserLocally(r.created);
+          } else {
+            remaining.push(r.source);
+          }
+        }
+        this.unsyncedUsersSubject.next(remaining);
+        this.saveUnsyncedUsersToStorage(remaining);
+      }),
+      map(results => ({
+        syncedCount: results.filter(r => r.ok).length,
+        failed: results.filter((r): r is { ok: false; source: CurrentUser; error: string } => !r.ok)
+          .map(r => ({ user: r.source, error: r.error }))
+      }))
+    );
+  }
+
+  discardUnsyncedUsers(): void {
+    this.unsyncedUsersSubject.next([]);
+    this.saveUnsyncedUsersToStorage([]);
+  }
+
   private createLocalUser(payload: UserCreatePayload): CurrentUser {
     const maxId = this.usersList.reduce((max, u) => (u.id > max ? u.id : max), 0);
     const defaultManager = this.usersList.find(u => u.role === Role.MANAGER) || this.usersList.find(u => u.id === 1);
     const defaultFinance = this.usersList.find(u => u.role === Role.FINANCE) || this.usersList.find(u => u.id === 3);
 
-    const assignedManagerId = payload.role === Role.EMPLOYEE 
-      ? (payload.managerId ?? (defaultManager ? defaultManager.id : 1))
-      : null;
+    const assignedManagerId = payload.managerId ?? (defaultManager ? defaultManager.id : 1);
     const assignedManager = assignedManagerId ? (this.usersList.find(u => u.id === assignedManagerId) || defaultManager) : null;
 
-    const assignedFinanceId = payload.role === Role.FINANCE 
-      ? null 
-      : (payload.financeId ?? (defaultFinance ? defaultFinance.id : 3));
+    const assignedFinanceId = payload.financeId ?? (defaultFinance ? defaultFinance.id : 3);
     const assignedFinance = assignedFinanceId ? (this.usersList.find(u => u.id === assignedFinanceId) || defaultFinance) : null;
 
     const newUser: CurrentUser = {
@@ -607,7 +835,7 @@ export class UserContextService {
       managerId: assignedManagerId,
       managerName: assignedManager ? assignedManager.fullName : (assignedManagerId ? 'Bob Miller' : null),
       financeId: assignedFinanceId,
-      financeName: payload.role === Role.FINANCE ? 'Self (Finance Officer)' : (assignedFinance ? assignedFinance.fullName : (assignedFinanceId ? 'Carol Davis' : null)),
+      financeName: assignedFinance ? assignedFinance.fullName : (payload.role === Role.FINANCE ? 'Self (Finance Officer)' : (assignedFinanceId ? 'Carol Davis' : null)),
       password: payload.password?.trim() || ((payload.fullName ? payload.fullName.split(' ')[0] : 'User') + '@' + payload.role.slice(0, 3) + '123')
     };
     this.addUserLocally(newUser);

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CurrentUser, UserContextService } from '../services/user-context.service';
 import { Role } from '../models/enums.model';
+import { getDepartmentTextClass, getRoleTextClass } from '../shared/status-utils';
 
 @Component({
   selector: 'app-my-profile',
@@ -16,6 +17,8 @@ export class MyProfileComponent implements OnInit, OnChanges {
   @Output() profileUpdated = new EventEmitter<CurrentUser>();
 
   Role = Role;
+  getDepartmentTextClass = getDepartmentTextClass;
+  getRoleTextClass = getRoleTextClass;
 
   // Form Model
   editFullName = '';

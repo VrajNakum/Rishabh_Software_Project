@@ -7,6 +7,7 @@ import com.corporate.travel.dto.TravelRequestResponseDto;
 import com.corporate.travel.service.TravelRequestService;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -63,6 +64,11 @@ public class TravelRequestController {
     @GetMapping
     public ResponseEntity<List<TravelRequestResponseDto>> getAllTravelRequests() {
         return ResponseEntity.ok(travelRequestService.getAllTravelRequests());
+    }
+
+    @GetMapping("/policies")
+    public ResponseEntity<List<Map<String, Object>>> getPredefinedPolicies() {
+        return ResponseEntity.ok(travelRequestService.getPredefinedPolicies());
     }
 
     // Step 4: Approval Action (Approve / Reject)

@@ -1,0 +1,240 @@
+<div *ngIf="canAccess" class="rs-card p-4">
+  <!-- Header -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 pb-3 border-bottom">
+    <div>
+      <h5 class="fw-bold mb-1">
+        <i class="bi bi-people-fill text-primary me-2"></i> Employee Details & Bank Accounts
+      </h5>
+      <small class="text-muted">
+        View employee profiles, reporting assignments, and required bank disbursement details ({{ bankConfiguredCount }} of {{ scopedUsers.length }} bank configured)
+      </small>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <button type="button"
+              class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+              [disabled]="isRefreshing"
+              (click)="refreshDirectory()">
+        <i class="bi bi-arrow-clockwise"></i>
+        <span>{{ isRefreshing ? 'Refreshing...' : 'Refresh' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Scope Filter Tabs & Search -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+    <div class="btn-group btn-group-sm" role="group" aria-label="Employee scope filter">
+      <button type="button"
+              class="btn"
+              [ngClass]="scopeFilter === 'EMPLOYEES' ? 'btn-primary' : 'btn-outline-secondary'"
+              (click)="setScopeFilter('EMPLOYEES')">
+        Employees ({{ totalEmployeesCount }})
+      </button>
+      <button type="button"
+              class="btn"
+              [ngClass]="scopeFilter === 'MANAGERS' ? 'btn-primary' : 'btn-outline-secondary'"
+              (click)="setScopeFilter('MANAGERS')">
+        Managers ({{ totalManagersCount }})
+      </button>
+      <button type="button"
+              class="btn"
+              [ngClass]="scopeFilter === 'FINANCE' ? 'btn-primary' : 'btn-outline-secondary'"
+              (click)="setScopeFilter('FINANCE')">
+        Finance Officers ({{ totalFinanceCount }})
+      </button>
+      <button *ngIf="isManagerOrFinance"
+              type="button"
+              class="btn"
+              [ngClass]="scopeFilter === 'MY_TEAM' ? 'btn-primary' : 'btn-outline-secondary'"
+              (click)="setScopeFilter('MY_TEAM')">
+        My Assigned Users
+      </button>
+      <button type="button"
+              class="btn"
+              [ngClass]="scopeFilter === 'ALL' ? 'btn-primary' : 'btn-outline-secondary'"
+              (click)="setScopeFilter('ALL')">
+        All Users ({{ users.length }})
+      </button>
+    </div>
+
+    <div class="input-group input-group-sm" style="max-width: 340px;">
+      <span class="input-group-text bg-light"><i class="bi bi-search text-muted"></i></span>
+      <input type="text"
+             class="form-control"
+             placeholder="Search name, email, dept, bank, IFSC, account..."
+             [(ngModel)]="searchTerm"
+             (ngModelChange)="onSearchChange()"
+             name="employeeSearch">
+      <button *ngIf="searchTerm"
+              type="button"
+              class="btn btn-outline-secondary"
+              (click)="searchTerm = ''; onSearchChange()">
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- Employee & Bank Details Table -->
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light small text-uppercase">
+        <tr>
+          <th>ID</th>
+          <th>Employee</th>
+          <th>Role</th>
+          <th>Department</th>
+          <th>Manager / Finance</th>
+          <th>Bank & Branch</th>
+          <th>IFSC Details</th>
+          <th>Account Number</th>
+          <th>Bank Status</th>
+          <th class="text-end">Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let emp of paginatedUsers">
+          <td class="fw-bold text-muted">#{{ emp.id }}</td>
+          <td>
+            <div class="fw-semibold text-dark">{{ emp.fullName }}</div>
+            <div class="text-muted small">{{ emp.email }}</div>
+          </td>
+          <td>
+            <span class="fw-semibold small" [ngClass]="getRoleTextClass(emp.role)">
+              {{ getRoleLabel(emp.role) }}
+            </span>
+          </td>
+          <td>
+            <span class="fw-semibold small" [ngClass]="getDepartmentTextClass(emp.departmentName)">
+              {{ emp.departmentName || 'General' }}
+            </span>
+          </td>
+          <td class="small">
+            <div><span class="text-muted">Mgr:</span> <strong class="text-dark">{{ emp.managerName || 'Unassigned' }}</strong></div>
+            <div><span class="text-muted">Fin:</span> <strong class="text-success">{{ emp.financeName || 'Unassigned' }}</strong></div>
+          </td>
+          <td class="small">
+            <div class="fw-semibold text-dark">{{ emp.bankName || 'Not Provided' }}</div>
+            <div class="text-muted">{{ emp.bankBranch || '—' }}</div>
+          </td>
+          <td class="small">
+            <div class="fw-semibold text-dark font-monospace">{{ emp.ifscCode || 'Not Provided' }}</div>
+            <div class="text-muted text-truncate" style="max-width: 170px;" [title]="emp.ifscName || ''">
+              {{ emp.ifscName || '—' }}
+            </div>
+          </td>
+          <td class="small fw-semibold font-monospace text-dark">
+            {{ emp.accountNumber || 'Not Provided' }}
+          </td>
+          <td>
+            <span *ngIf="hasBankDetails(emp)" class="fw-semibold small text-success">Complete</span>
+            <span *ngIf="hasPartialBankDetails(emp)" class="fw-semibold small text-warning-emphasis">Incomplete</span>
+            <span *ngIf="!hasBankDetails(emp) && !hasPartialBankDetails(emp)" class="fw-semibold small text-danger">Required</span>
+          </td>
+          <td class="text-end">
+            <button type="button"
+                    class="btn btn-sm btn-outline-primary text-nowrap"
+                    (click)="openEmployeeModal(emp)">
+              View Details
+            </button>
+          </td>
+        </tr>
+
+        <tr *ngIf="scopedUsers.length === 0">
+          <td colspan="10" class="text-center py-5 text-muted">
+            <h6 class="fw-bold text-dark mb-1">No Matching Employee Records Found</h6>
+            <p class="small text-muted mb-0">Try clearing the search query or switching the filter view.</p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <app-pagination
+    [totalItems]="scopedUsers.length"
+    [pageSize]="pageSize"
+    [currentPage]="currentPage"
+    (pageChange)="currentPage = $event"
+    (pageSizeChange)="pageSize = $event; currentPage = 1">
+  </app-pagination>
+</div>
+
+<!-- Employee & Bank Details Modal -->
+<div *ngIf="selectedEmployee" class="emp-modal-overlay" (click)="closeEmployeeModal()"></div>
+<div *ngIf="selectedEmployee"
+     class="emp-modal-wrapper"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="empDetailModalTitle">
+  <div class="emp-modal-card">
+    <div class="bg-primary text-white d-flex align-items-center justify-content-between p-3 px-4">
+      <h5 class="fw-bold mb-0" id="empDetailModalTitle">
+        Employee & Bank Details — {{ selectedEmployee.fullName }} (#{{ selectedEmployee.id }})
+      </h5>
+      <button type="button" class="btn-close btn-close-white" (click)="closeEmployeeModal()" aria-label="Close"></button>
+    </div>
+
+    <div class="p-4">
+      <h6 class="fw-bold text-dark mb-2">Employee Profile</h6>
+      <div class="row g-3 p-3 bg-light rounded border mb-4 small">
+        <div class="col-md-4 col-sm-6">
+          <span class="text-muted d-block">Full Name</span>
+          <strong class="text-dark">{{ selectedEmployee.fullName }}</strong>
+        </div>
+        <div class="col-md-4 col-sm-6">
+          <span class="text-muted d-block">Corporate Email</span>
+          <strong class="text-dark">{{ selectedEmployee.email }}</strong>
+        </div>
+        <div class="col-md-4 col-sm-6">
+          <span class="text-muted d-block">Role & Department</span>
+          <strong [ngClass]="getRoleTextClass(selectedEmployee.role)">{{ getRoleLabel(selectedEmployee.role) }}</strong>
+          <span class="mx-1 text-muted">/</span>
+          <strong [ngClass]="getDepartmentTextClass(selectedEmployee.departmentName)">{{ selectedEmployee.departmentName || 'General' }}</strong>
+        </div>
+        <div class="col-md-6 col-sm-6">
+          <span class="text-muted d-block">Assigned Manager</span>
+          <strong class="text-primary">{{ selectedEmployee.managerName || 'Unassigned' }}</strong>
+        </div>
+        <div class="col-md-6 col-sm-6">
+          <span class="text-muted d-block">Assigned Finance Officer</span>
+          <strong class="text-success">{{ selectedEmployee.financeName || 'Unassigned' }}</strong>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="fw-bold text-dark mb-0">Required Bank Disbursement Details</h6>
+        <span *ngIf="hasBankDetails(selectedEmployee)" class="fw-semibold small text-success">All Required Bank Fields Verified</span>
+        <span *ngIf="!hasBankDetails(selectedEmployee)" class="fw-semibold small text-danger">Required Bank Details Missing / Incomplete</span>
+      </div>
+      <div class="row g-3 p-3 bg-light rounded border small">
+        <div class="col-md-6">
+          <span class="text-muted d-block">Name of the Bank <span class="text-danger">*</span></span>
+          <strong class="text-dark">{{ selectedEmployee.bankName || 'Not Configured' }}</strong>
+        </div>
+        <div class="col-md-6">
+          <span class="text-muted d-block">Name of the Bank Branch <span class="text-danger">*</span></span>
+          <strong class="text-dark">{{ selectedEmployee.bankBranch || 'Not Configured' }}</strong>
+        </div>
+        <div class="col-md-4">
+          <span class="text-muted d-block">IFSC Code <span class="text-danger">*</span></span>
+          <strong class="text-dark font-monospace">{{ selectedEmployee.ifscCode || 'Not Configured' }}</strong>
+        </div>
+        <div class="col-md-4">
+          <span class="text-muted d-block">IFSC Name</span>
+          <strong class="text-dark">{{ selectedEmployee.ifscName || 'Not Configured' }}</strong>
+        </div>
+        <div class="col-md-4">
+          <span class="text-muted d-block">Account Number <span class="text-danger">*</span></span>
+          <strong class="text-dark font-monospace">{{ selectedEmployee.accountNumber || 'Not Configured' }}</strong>
+        </div>
+        <div class="col-12" *ngIf="selectedEmployee.bankProofFileName">
+          <span class="text-muted d-block">Bank Proof Document</span>
+          <strong class="text-primary">{{ selectedEmployee.bankProofFileName }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end p-3 px-4 bg-light border-top">
+      <button type="button" class="btn btn-primary px-4" (click)="closeEmployeeModal()">Close</button>
+    </div>
+  </div>
+</div>

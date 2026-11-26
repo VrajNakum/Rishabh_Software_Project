@@ -228,7 +228,7 @@
                         <div class="text-muted small">{{ verifiedUser.email }}</div>
                       </div>
                     </div>
-                    <span class="badge" [ngClass]="getRoleBadgeClass(verifiedUser.role)">
+                    <span class="fw-semibold small" [ngClass]="getRoleTextClass(verifiedUser.role)">
                       {{ verifiedUser.role }}
                     </span>
                   </div>
@@ -269,18 +269,11 @@
                   <div class="input-group mb-2">
                     <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-lock"></i></span>
                     <input
-                      [type]="showNewPassword ? 'text' : 'password'"
-                      class="form-control border-start-0 border-end-0 ps-1"
+                      type="password"
+                      class="form-control border-start-0 ps-1"
                       [(ngModel)]="newPassword"
                       placeholder="Enter new password (min 4 chars)"
                     />
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary border-start-0 bg-light text-muted"
-                      (click)="showNewPassword = !showNewPassword"
-                    >
-                      <i class="bi" [ngClass]="showNewPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
-                    </button>
                   </div>
                   <button
                     type="button"

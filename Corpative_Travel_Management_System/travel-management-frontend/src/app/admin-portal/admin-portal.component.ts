@@ -5,7 +5,7 @@ import { Role } from '../models/enums.model';
 import { CurrentUser, UserContextService } from '../services/user-context.service';
 import { UserCreatePayload } from '../services/user.service';
 import { TravelRequestResponseDto } from '../models/travel-request.model';
-import { formatStatusLabel, getStatusIcon } from '../shared/status-utils';
+import { formatStatusLabel, getStatusIcon, getDepartmentTextClass, getRoleTextClass } from '../shared/status-utils';
 import { PaginationComponent } from '../shared/pagination/pagination.component';
 
 @Component({
@@ -21,6 +21,7 @@ export class AdminPortalComponent implements OnInit {
   @Output() userCreated = new EventEmitter<CurrentUser>();
   @Output() userDeleted = new EventEmitter<CurrentUser>();
   @Output() userAssignmentsUpdated = new EventEmitter<CurrentUser>();
+  @Output() userRoleUpdated = new EventEmitter<CurrentUser>();
   @Output() userSwitched = new EventEmitter<number>();
   @Output() budgetUpdated = new EventEmitter<{ requestId: number; newBudget: number }>();
   @Output() deleteRequest = new EventEmitter<TravelRequestResponseDto>();
@@ -49,6 +50,16 @@ export class AdminPortalComponent implements OnInit {
     }
   ];
 
+  editableRoles: { role: Role; label: string; description: string; icon: string }[] = [
+    ...this.selectableRoles,
+    {
+      role: Role.ADMIN,
+      label: 'Administrator',
+      description: 'Full system administration: manage users, access roles, assignments, and travel request budgets.',
+      icon: 'bi-shield-lock-fill'
+    }
+  ];
+
   commonDepartments: string[] = [
     'Engineering',
     'Finance',
@@ -64,7 +75,6 @@ export class AdminPortalComponent implements OnInit {
 
   // Add User Modal State
   showAddUserModal = false;
-  showNewUserPassword = false;
   isSavingUser = false;
   formError: string | null = null;
 
@@ -105,12 +115,23 @@ export class AdminPortalComponent implements OnInit {
   isSavingAssignments = false;
   reassignError: string | null = null;
 
+  // Edit User Access Role Modal State
+  showEditRoleModal = false;
+  editingRoleUser: CurrentUser | null = null;
+  selectedUserRole: Role = Role.EMPLOYEE;
+  isSavingUserRole = false;
+  roleEditError: string | null = null;
+
   getStatusIcon = getStatusIcon;
   formatStatusLabel = formatStatusLabel;
+  getDepartmentTextClass = getDepartmentTextClass;
+  getRoleTextClass = getRoleTextClass;
 
   constructor(public userContext: UserContextService) {}
 
   ngOnInit(): void {
+    this.userContext.refreshUsers?.().subscribe();
+
     // If no manager selected initially, pick the first available manager if any
     const firstManager = this.userContext.managers[0];
     if (firstManager) {
@@ -210,11 +231,10 @@ export class AdminPortalComponent implements OnInit {
 
   openAddUserModal(defaultRole?: Role): void {
     this.formError = null;
-    this.showNewUserPassword = false;
     const managersList = this.managers;
     const financeList = this.financeOfficers;
-    const defaultManagerId = managersList.length > 0 ? managersList[0].id : 1;
-    const defaultFinanceId = financeList.length > 0 ? financeList[0].id : 3;
+    const defaultManagerId = managersList.length > 0 ? managersList[0].id : null;
+    const defaultFinanceId = financeList.length > 0 ? financeList[0].id : null;
 
     this.newUser = {
       fullName: '',
@@ -222,8 +242,8 @@ export class AdminPortalComponent implements OnInit {
       password: '',
       role: defaultRole || Role.EMPLOYEE,
       departmentName: defaultRole === Role.FINANCE ? 'Finance' : 'Engineering',
-      managerId: defaultRole === Role.EMPLOYEE || !defaultRole ? defaultManagerId : null,
-      financeId: defaultRole === Role.FINANCE ? null : defaultFinanceId
+      managerId: defaultManagerId,
+      financeId: defaultFinanceId
     };
     this.showAddUserModal = true;
   }
@@ -231,33 +251,24 @@ export class AdminPortalComponent implements OnInit {
   closeAddUserModal(): void {
     if (this.isSavingUser) return;
     this.showAddUserModal = false;
-    this.showNewUserPassword = false;
     this.formError = null;
   }
 
   onRoleChange(newRole: Role): void {
     this.newUser.role = newRole;
-    if (newRole === Role.FINANCE) {
-      if (this.newUser.departmentName === 'Engineering') {
-        this.newUser.departmentName = 'Finance';
-      }
-      this.newUser.financeId = null;
-    } else {
-      if (!this.newUser.financeId) {
-        this.newUser.financeId = this.financeOfficers.length > 0 ? this.financeOfficers[0].id : 3;
-      }
+    if (newRole === Role.FINANCE && this.newUser.departmentName === 'Engineering') {
+      this.newUser.departmentName = 'Finance';
     }
-
-    if (newRole === Role.EMPLOYEE) {
-      if (!this.newUser.managerId) {
-        this.newUser.managerId = this.managers.length > 0 ? this.managers[0].id : 1;
-      }
-    } else {
-      this.newUser.managerId = null;
+    if (!this.newUser.financeId) {
+      this.newUser.financeId = this.financeOfficers.length > 0 ? this.financeOfficers[0].id : null;
+    }
+    if (!this.newUser.managerId) {
+      this.newUser.managerId = this.managers.length > 0 ? this.managers[0].id : null;
     }
   }
 
   submitAddUser(): void {
+    if (this.isSavingUser) return;
     this.formError = null;
 
     const name = this.newUser.fullName.trim();
@@ -304,17 +315,12 @@ export class AdminPortalComponent implements OnInit {
 
     this.isSavingUser = true;
 
-    const defaultManagerId = this.managers.length > 0 ? this.managers[0].id : 1;
-    const defaultFinanceId = this.financeOfficers.length > 0 ? this.financeOfficers[0].id : 3;
+    const defaultManagerId = this.managers.length > 0 ? this.managers[0].id : null;
+    const defaultFinanceId = this.financeOfficers.length > 0 ? this.financeOfficers[0].id : null;
 
-    // If there is no input field for reporting manager or finance, default to user1manager and user1finance
-    const assignedManagerId = this.newUser.role === Role.EMPLOYEE 
-      ? (this.newUser.managerId ?? defaultManagerId)
-      : null;
-
-    const assignedFinanceId = this.newUser.role !== Role.FINANCE
-      ? (this.newUser.financeId ?? defaultFinanceId)
-      : null;
+    // Default to first available manager and finance officer if no selection was chosen
+    const assignedManagerId = this.newUser.managerId ?? defaultManagerId;
+    const assignedFinanceId = this.newUser.financeId ?? defaultFinanceId;
 
     const payload: UserCreatePayload = {
       fullName: name,
@@ -334,7 +340,7 @@ export class AdminPortalComponent implements OnInit {
       },
       error: (err) => {
         this.isSavingUser = false;
-        this.formError = err?.message || 'Failed to create user. Please try again.';
+        this.formError = err?.error?.message || err?.message || 'Failed to save user to database. Please try again.';
       }
     });
   }
@@ -473,6 +479,68 @@ export class AdminPortalComponent implements OnInit {
       next: () => {},
       error: (err) => {
         console.error('Failed to update assignments in backend:', err);
+      }
+    });
+  }
+
+  openEditRoleModal(user: CurrentUser): void {
+    if (this.currentUser && user.id === this.currentUser.id) return;
+    this.editingRoleUser = user;
+    this.selectedUserRole = user.role;
+    this.roleEditError = null;
+    this.showEditRoleModal = true;
+  }
+
+  closeEditRoleModal(): void {
+    if (this.isSavingUserRole) return;
+    this.showEditRoleModal = false;
+    this.editingRoleUser = null;
+    this.roleEditError = null;
+  }
+
+  getRoleOptionInfo(role: Role): { role: Role; label: string; description: string; icon: string } {
+    return this.editableRoles.find(r => r.role === role) || this.editableRoles[0];
+  }
+
+  saveUserRole(): void {
+    if (!this.editingRoleUser) return;
+    if (this.currentUser && this.editingRoleUser.id === this.currentUser.id) {
+      this.roleEditError = 'Cannot change the role of the currently active Admin session.';
+      return;
+    }
+
+    this.roleEditError = null;
+    const targetUser = this.editingRoleUser;
+    const targetUserId = targetUser.id;
+    const newRole = this.selectedUserRole;
+
+    // Update targetUser in-place so the table row and role counts update immediately
+    targetUser.role = newRole;
+    if (newRole !== Role.FINANCE && targetUser.financeId === targetUser.id) {
+      targetUser.financeId = null;
+      targetUser.financeName = null;
+    }
+    if (newRole !== Role.MANAGER && targetUser.managerId === targetUser.id) {
+      targetUser.managerId = null;
+      targetUser.managerName = null;
+    }
+    if (newRole === Role.FINANCE && !targetUser.financeId) {
+      targetUser.financeName = 'Self (Finance Officer)';
+    } else if (newRole !== Role.FINANCE && targetUser.financeName === 'Self (Finance Officer)' && !targetUser.financeId) {
+      targetUser.financeName = null;
+    }
+
+    const optimisticUpdated: CurrentUser = { ...targetUser };
+
+    this.isSavingUserRole = false;
+    this.showEditRoleModal = false;
+    this.editingRoleUser = null;
+    this.userRoleUpdated.emit(optimisticUpdated);
+
+    this.userContext.updateUserRole(targetUserId, newRole).subscribe({
+      next: () => {},
+      error: (err) => {
+        console.error('Failed to update user role in backend:', err);
       }
     });
   }

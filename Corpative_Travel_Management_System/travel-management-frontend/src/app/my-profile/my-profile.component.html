@@ -11,12 +11,13 @@
       <h5 class="fw-bold text-dark mb-1">{{ currentUser.fullName }}</h5>
       <p class="text-muted small mb-3">{{ currentUser.email }}</p>
 
-      <div class="d-flex justify-content-center gap-2 mb-4">
-        <span class="badge px-3 py-1.5" [ngClass]="getRoleBadgeClass(currentUser.role)">
-          <i class="bi bi-shield-check me-1"></i> {{ currentUser.role }}
+      <div class="d-flex justify-content-center align-items-center gap-3 mb-4">
+        <span class="fw-semibold small" [ngClass]="getRoleTextClass(currentUser.role)">
+          {{ currentUser.role }}
         </span>
-        <span class="badge bg-light text-dark border px-3 py-1.5">
-          <i class="bi bi-building me-1"></i> {{ currentUser.departmentName || 'General' }}
+        <span class="text-muted">&bull;</span>
+        <span class="fw-semibold small" [ngClass]="getDepartmentTextClass(currentUser.departmentName)">
+          {{ currentUser.departmentName || 'General' }}
         </span>
       </div>
 
@@ -26,13 +27,13 @@
           <span class="text-muted">Corporate User ID:</span>
           <strong class="text-dark">#{{ currentUser.id }}</strong>
         </div>
-        <div class="d-flex justify-content-between py-1.5 border-bottom">
+        <div class="d-flex justify-content-between py-1.5 border-bottom" *ngIf="currentUser.role !== Role.EMPLOYEE">
           <span class="text-muted">Assigned Manager:</span>
           <span class="fw-semibold text-dark text-truncate ms-2" style="max-width: 150px;" [title]="currentUser.managerName || 'None'">
             {{ currentUser.managerName || 'None' }}
           </span>
         </div>
-        <div class="d-flex justify-content-between py-1.5 border-bottom">
+        <div class="d-flex justify-content-between py-1.5 border-bottom" *ngIf="currentUser.role !== Role.EMPLOYEE">
           <span class="text-muted">Assigned Finance:</span>
           <span class="fw-semibold text-success text-truncate ms-2" style="max-width: 150px;" [title]="currentUser.financeName || 'Carol Davis'">
             {{ currentUser.financeName || (currentUser.role === Role.FINANCE ? 'Self (Finance Officer)' : 'Carol Davis') }}
@@ -40,9 +41,7 @@
         </div>
         <div class="d-flex justify-content-between py-1.5">
           <span class="text-muted">Account Status:</span>
-          <span class="badge bg-success-subtle text-success border border-success-subtle">
-            <i class="bi bi-check-circle-fill me-1"></i> Active Session
-          </span>
+          <span class="fw-semibold small text-success">Active Session</span>
         </div>
       </div>
 
@@ -52,8 +51,8 @@
           <strong class="text-dark d-flex align-items-center">
             <i class="bi bi-bank2 text-primary me-1.5"></i> Disbursement Bank
           </strong>
-          <span *ngIf="currentUser.accountNumber" class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.7rem;">Configured</span>
-          <span *ngIf="!currentUser.accountNumber" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.7rem;">Pending</span>
+          <span *ngIf="currentUser.accountNumber" class="fw-semibold text-success" style="font-size: 0.75rem;">Configured</span>
+          <span *ngIf="!currentUser.accountNumber" class="fw-semibold text-warning-emphasis" style="font-size: 0.75rem;">Pending</span>
         </div>
         <div class="d-flex justify-content-between py-1 border-bottom">
           <span class="text-muted">Bank:</span>
@@ -221,8 +220,8 @@
                 </h6>
                 <small class="text-muted">Account details used by Finance for direct travel expense claims reimbursement disbursement</small>
               </div>
-              <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1">
-                <i class="bi bi-shield-lock-fill me-1"></i> Direct Payout
+              <span class="fw-semibold small text-success">
+                Direct Payout
               </span>
             </div>
 

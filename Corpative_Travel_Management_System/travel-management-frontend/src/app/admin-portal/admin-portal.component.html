@@ -10,8 +10,8 @@
         <div>
           <div class="d-flex align-items-center gap-2">
             <h4 class="fw-bold mb-0 text-dark">Admin Portal & Access Control</h4>
-            <span class="badge bg-warning text-dark fw-semibold px-2 py-1">
-              <i class="bi bi-shield-check me-1"></i> System Administration
+            <span class="fw-semibold small text-warning-emphasis">
+              System Administration
             </span>
           </div>
           <p class="text-muted small mb-0 mt-1">
@@ -203,8 +203,8 @@
                 <div>
                   <div class="fw-semibold text-dark d-flex align-items-center gap-1">
                     {{ u.fullName }}
-                    <span *ngIf="u.id === currentUser.id" class="badge bg-primary-subtle text-primary small" style="font-size: 0.65rem;">
-                      Current
+                    <span *ngIf="u.id === currentUser.id" class="fw-semibold text-primary small" style="font-size: 0.72rem;">
+                      (Current)
                     </span>
                   </div>
                   <div class="text-muted small">
@@ -214,27 +214,33 @@
               </div>
             </td>
             <td>
-              <span *ngIf="u.role === Role.EMPLOYEE" class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
-                <i class="bi bi-person-badge me-1"></i> Employee
-              </span>
-              <span *ngIf="u.role === Role.MANAGER" class="badge bg-info-subtle text-info-emphasis border border-info-subtle px-2 py-1">
-                <i class="bi bi-person-check-fill me-1"></i> Manager
-              </span>
-              <span *ngIf="u.role === Role.FINANCE" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
-                <i class="bi bi-cash-coin me-1"></i> Finance Officer
-              </span>
-              <span *ngIf="u.role === Role.ADMIN" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
-                <i class="bi bi-shield-lock-fill me-1"></i> Administrator
-              </span>
+              <div class="d-flex align-items-center justify-content-between">
+                <div>
+                  <span *ngIf="u.role === Role.EMPLOYEE" class="fw-semibold small text-primary">Employee</span>
+                  <span *ngIf="u.role === Role.MANAGER" class="fw-semibold small text-info-emphasis">Manager</span>
+                  <span *ngIf="u.role === Role.FINANCE" class="fw-semibold small text-success">Finance Officer</span>
+                  <span *ngIf="u.role === Role.ADMIN" class="fw-semibold small text-warning-emphasis">Administrator</span>
+                </div>
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary py-0 px-1 ms-2"
+                        style="font-size: 0.75rem; border-radius: 4px;"
+                        [disabled]="u.id === currentUser.id"
+                        (click)="openEditRoleModal(u)"
+                        [title]="u.id === currentUser.id ? 'Cannot change Access Role of active Admin' : 'Change Access Role for ' + u.fullName">
+                  <i class="bi bi-pencil-square"></i>
+                </button>
+              </div>
             </td>
             <td>
-              <span class="badge bg-light text-dark border">{{ u.departmentName || 'General' }}</span>
+              <span class="fw-semibold small" [ngClass]="getDepartmentTextClass(u.departmentName)">
+                {{ u.departmentName || 'General' }}
+              </span>
             </td>
             <td>
               <div class="d-flex align-items-center justify-content-between">
                 <div>
                   <span class="text-dark small">
-                    <i class="bi bi-person-up text-muted me-1"></i> {{ getUserManagerName(u) }}
+                    {{ getUserManagerName(u) }}
                   </span>
                 </div>
                 <button type="button" 
@@ -249,8 +255,8 @@
             <td>
               <div class="d-flex align-items-center justify-content-between">
                 <div>
-                  <span class="text-dark small d-flex align-items-center">
-                    <i class="bi bi-cash-coin text-success me-1"></i> {{ getUserFinanceName(u) }}
+                  <span class="text-success small fw-semibold">
+                    {{ getUserFinanceName(u) }}
                   </span>
                 </div>
                 <button type="button" 
@@ -275,8 +281,8 @@
                 </button>
 
                 <!-- Active Indicator for Current User -->
-                <span *ngIf="u.id === currentUser.id" class="badge bg-success-subtle text-success py-1 px-2 small">
-                  <i class="bi bi-check2-circle me-1"></i> Active Admin
+                <span *ngIf="u.id === currentUser.id" class="fw-semibold small text-success">
+                  Active Admin
                 </span>
               </div>
             </td>
@@ -307,11 +313,11 @@
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
       <div>
         <h5 class="fw-bold mb-0">
-          <i class="bi bi-currency-dollar text-success me-2"></i> Est. Budget Administration & Operations
+          <i class="bi bi-currency-rupee text-success me-2"></i> Est. Budget Administration & Operations
         </h5>
         <small class="text-muted">Oversee and update Estimated Budgets across all submitted travel requests</small>
       </div>
-      <span class="badge bg-light text-dark border">
+      <span class="fw-semibold small text-muted">
         Total Requests: {{ requests.length }}
       </span>
     </div>
@@ -335,12 +341,12 @@
             <td><strong>#{{ req.id }}</strong></td>
             <td>
               <div class="fw-semibold">{{ req.employeeName }}</div>
-              <div class="text-muted small">{{ req.departmentName }}</div>
+              <div class="small fw-medium" [ngClass]="getDepartmentTextClass(req.departmentName)">{{ req.departmentName }}</div>
             </td>
             <td>{{ req.destination }}</td>
             <td class="small">{{ req.startDate }} to {{ req.endDate }}</td>
             <td>
-              <strong class="text-primary">${{ req.estimatedBudget | number:'1.2-2' }}</strong>
+              <strong class="text-primary">₹{{ req.estimatedBudget | number:'1.2-2' }}</strong>
             </td>
             <td>
               <span class="status-badge" [ngClass]="'badge-' + req.status.toLowerCase().replace('_', '-')">
@@ -348,11 +354,11 @@
               </span>
             </td>
             <td>
-              <span *ngIf="req.policyViolated" class="badge bg-danger-subtle text-danger" title="{{ req.policyViolationReason }}">
-                <i class="bi bi-exclamation-triangle"></i> Exceeded
+              <span *ngIf="req.policyViolated" class="fw-semibold small text-danger" title="{{ req.policyViolationReason }}">
+                Exceeded
               </span>
-              <span *ngIf="!req.policyViolated" class="badge bg-success-subtle text-success">
-                <i class="bi bi-shield-check"></i> Compliant
+              <span *ngIf="!req.policyViolated" class="fw-semibold small text-success">
+                Compliant
               </span>
             </td>
             <td class="text-end">
@@ -495,18 +501,12 @@
               </label>
               <div class="input-group">
                 <span class="input-group-text bg-light"><i class="bi bi-key-fill text-muted"></i></span>
-                <input [type]="showNewUserPassword ? 'text' : 'password'" 
-                       class="form-control border-end-0" 
+                <input type="password" 
+                       class="form-control" 
                        [(ngModel)]="newUser.password" 
                        name="password" 
                        placeholder="Set login password (min 4 chars)" 
                        required>
-                <button type="button" 
-                        class="btn btn-outline-secondary border-start-0 bg-light text-muted"
-                        (click)="showNewUserPassword = !showNewUserPassword"
-                        [title]="showNewUserPassword ? 'Hide password' : 'Show password'">
-                  <i class="bi" [ngClass]="showNewUserPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
-                </button>
               </div>
               <div class="form-text small" style="font-size: 0.75rem;">
                 Required for the user to sign in to the Corporate Travel Desk.
@@ -525,8 +525,8 @@
               </div>
             </div>
 
-            <!-- Assigned Manager (Available when Role is EMPLOYEE) -->
-            <div class="col-md-6" *ngIf="newUser.role === Role.EMPLOYEE">
+            <!-- Assigned Manager (Available for all roles) -->
+            <div class="col-md-6">
               <label class="form-label small fw-semibold text-dark">
                 Reporting Manager
               </label>
@@ -540,12 +540,12 @@
                 </select>
               </div>
               <div class="form-text small" style="font-size: 0.75rem;">
-                Requests submitted by this employee route to this manager for approval (defaults to {{ defaultManagerName }}).
+                Requests submitted by this user route to this manager for approval (defaults to {{ defaultManagerName }}).
               </div>
             </div>
 
-            <!-- Assigned Finance Officer (Available when Role is not FINANCE) -->
-            <div class="col-md-6" *ngIf="newUser.role !== Role.FINANCE">
+            <!-- Assigned Finance Officer (Available for all roles) -->
+            <div class="col-md-6">
               <label class="form-label small fw-semibold text-dark">
                 Assigned FINANCE Officer
               </label>
@@ -596,13 +596,15 @@
         <div class="modal-footer bg-light px-4 py-3">
           <button type="button" 
                   class="btn btn-outline-secondary" 
+                  [disabled]="isSavingUser"
                   (click)="closeAddUserModal()">
             Cancel
           </button>
           <button type="submit" 
-                  class="btn btn-primary px-4 fw-semibold">
+                  class="btn btn-primary px-4 fw-semibold"
+                  [disabled]="isSavingUser">
             <i class="bi bi-check-lg me-1"></i>
-            Add New User
+            {{ isSavingUser ? 'Saving...' : 'Add New User' }}
           </button>
         </div>
       </form>
@@ -636,14 +638,14 @@
           </div>
           <div class="d-flex justify-content-between">
             <span class="text-muted small">Current Est. Budget:</span>
-            <span class="fw-bold text-primary">${{ editingBudgetRequest.estimatedBudget | number:'1.2-2' }}</span>
+            <span class="fw-bold text-primary">₹{{ editingBudgetRequest.estimatedBudget | number:'1.2-2' }}</span>
           </div>
         </div>
 
         <div class="mb-3">
-          <label class="form-label fw-bold text-dark">New Estimated Budget ($)</label>
+          <label class="form-label fw-bold text-dark">New Estimated Budget (₹)</label>
           <div class="input-group">
-            <span class="input-group-text bg-light">$</span>
+            <span class="input-group-text bg-light">₹</span>
             <input type="number" 
                    class="form-control form-control-lg" 
                    [(ngModel)]="updatedBudgetValue" 
@@ -705,11 +707,11 @@
           </div>
           <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
             <span class="text-muted small">Role:</span>
-            <span class="badge" [ngClass]="getRoleBadgeClass(userToDelete.role)">{{ userToDelete.role }}</span>
+            <span class="fw-semibold small" [ngClass]="getRoleTextClass(userToDelete.role)">{{ userToDelete.role }}</span>
           </div>
           <div class="d-flex justify-content-between">
             <span class="text-muted small">Department:</span>
-            <span class="fw-semibold text-dark small">{{ userToDelete.departmentName || 'General' }}</span>
+            <span class="fw-semibold small" [ngClass]="getDepartmentTextClass(userToDelete.departmentName)">{{ userToDelete.departmentName || 'General' }}</span>
           </div>
         </div>
 
@@ -771,12 +773,12 @@
                   <div class="text-muted small">{{ reassigningUser.email }}</div>
                 </div>
               </div>
-              <span class="badge" [ngClass]="getRoleBadgeClass(reassigningUser.role)">
+              <span class="fw-semibold small" [ngClass]="getRoleTextClass(reassigningUser.role)">
                 {{ reassigningUser.role }}
               </span>
             </div>
             <div class="small text-muted border-top pt-2 mt-1">
-              <i class="bi bi-building me-1"></i> Department: <strong class="text-dark">{{ reassigningUser.departmentName || 'General' }}</strong>
+              Department: <strong [ngClass]="getDepartmentTextClass(reassigningUser.departmentName)">{{ reassigningUser.departmentName || 'General' }}</strong>
             </div>
           </div>
 
@@ -850,6 +852,92 @@
                   [ngClass]="reassignType === 'MANAGER' ? 'btn-primary' : 'btn-success'">
             <i class="bi bi-check-lg me-1"></i>
             {{ reassignType === 'MANAGER' ? 'Save Manager Assignment' : 'Save Finance Assignment' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL: EDIT USER ACCESS ROLE               -->
+<!-- ========================================== -->
+<div *ngIf="showEditRoleModal && editingRoleUser" class="modal-backdrop fade show"></div>
+<div *ngIf="showEditRoleModal && editingRoleUser" class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow border-0">
+      <div class="modal-header bg-dark text-white py-3">
+        <h5 class="modal-title fw-bold d-flex align-items-center">
+          <i class="bi bi-shield-lock-fill text-warning me-2"></i>
+          Change User Access Role
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="closeEditRoleModal()" aria-label="Close" [disabled]="isSavingUserRole"></button>
+      </div>
+
+      <form (ngSubmit)="saveUserRole()">
+        <div class="modal-body p-4">
+          <div *ngIf="roleEditError" class="alert alert-danger py-2 px-3 small mb-3 border-danger">
+            <i class="bi bi-exclamation-octagon-fill me-2"></i> {{ roleEditError }}
+          </div>
+
+          <!-- Target User Profile Card -->
+          <div class="p-3 bg-light rounded border mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <div class="d-flex align-items-center gap-2">
+                <div class="user-avatar" [ngClass]="'avatar-' + editingRoleUser.role.toLowerCase()" style="width: 38px; height: 38px; font-size: 1rem;">
+                  {{ editingRoleUser.fullName.charAt(0).toUpperCase() }}
+                </div>
+                <div>
+                  <div class="fw-bold text-dark">{{ editingRoleUser.fullName }}</div>
+                  <div class="text-muted small">{{ editingRoleUser.email }}</div>
+                </div>
+              </div>
+              <span class="fw-semibold small" [ngClass]="getRoleTextClass(editingRoleUser.role)">
+                {{ editingRoleUser.role }}
+              </span>
+            </div>
+            <div class="small text-muted border-top pt-2 mt-1">
+              Department: <strong [ngClass]="getDepartmentTextClass(editingRoleUser.departmentName)">{{ editingRoleUser.departmentName || 'General' }}</strong>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold text-dark">
+              <i class="bi bi-person-gear text-primary me-1"></i> Select Access Role
+            </label>
+            <div class="input-group">
+              <span class="input-group-text bg-light">
+                <i class="bi" [ngClass]="getRoleOptionInfo(selectedUserRole).icon"></i>
+              </span>
+              <select class="form-select" [(ngModel)]="selectedUserRole" name="selectedUserRole">
+                <option *ngFor="let roleOpt of editableRoles" [ngValue]="roleOpt.role">
+                  {{ roleOpt.label }} ({{ roleOpt.role }})
+                </option>
+              </select>
+            </div>
+            <div class="form-text small" style="font-size: 0.75rem;">
+              {{ getRoleOptionInfo(selectedUserRole).description }}
+            </div>
+          </div>
+
+          <div class="alert alert-warning py-2 px-3 small mb-0 d-flex align-items-center">
+            <i class="bi bi-info-circle-fill text-warning fs-5 me-2 flex-shrink-0"></i>
+            <div>
+              Changing the access role immediately updates the user's permissions and available portal tabs on next navigation or login.
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer bg-light px-4 py-3">
+          <button type="button"
+                  class="btn btn-outline-secondary"
+                  (click)="closeEditRoleModal()">
+            Cancel
+          </button>
+          <button type="submit"
+                  class="btn btn-primary px-4 fw-semibold">
+            <i class="bi bi-check-lg me-1"></i>
+            Save Access Role
           </button>
         </div>
       </form>

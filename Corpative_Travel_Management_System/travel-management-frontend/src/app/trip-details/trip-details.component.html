@@ -5,15 +5,15 @@
       <span class="fw-bold d-flex align-items-center">
         <i class="bi bi-x-octagon-fill me-2 fs-5"></i> Travel Request Rejected
       </span>
-      <span class="badge bg-white text-danger fw-semibold px-2 py-1" *ngIf="rejectionTimestamp">
+      <span class="text-white-50 fw-semibold small" *ngIf="rejectionTimestamp">
         {{ rejectionTimestamp | date:'medium' }}
       </span>
     </div>
     <div class="card-body p-3 bg-danger-subtle bg-opacity-25">
       <div class="row align-items-center g-2 mb-2">
         <div class="col-auto">
-          <span class="badge bg-danger text-white px-3 py-2 fs-6">
-            <i class="bi bi-person-x-fill me-1"></i> Rejected By: {{ rejectionReviewerName }}
+          <span class="fw-bold text-danger fs-6">
+            Rejected By: {{ rejectionReviewerName }}
           </span>
         </div>
         <div class="col">
@@ -41,7 +41,7 @@
         <h5 class="fw-bold mb-0">Trip #{{ selectedRequest.id }}: {{ selectedRequest.destination }}</h5>
         <small class="text-muted">
           {{ selectedRequest.startDate }} to {{ selectedRequest.endDate }} &bull;
-          Budget: ${{ selectedRequest.estimatedBudget | number:'1.2-2' }} &bull;
+          Budget: ₹{{ selectedRequest.estimatedBudget | number:'1.2-2' }} &bull;
           Traveler: {{ selectedRequest.employeeName }} ({{ selectedRequest.departmentName }})
         </small>
       </div>
@@ -57,6 +57,17 @@
         <i class="bi bi-trash me-1"></i>
         Delete
       </button>
+    </div>
+  </div>
+
+  <!-- Policy Violation Flag Banner -->
+  <div *ngIf="selectedRequest.policyViolated && selectedRequest.status !== 'REJECTED'"
+       class="alert alert-danger d-flex align-items-start gap-2 mb-4 shadow-sm border-danger"
+       role="alert">
+    <i class="bi bi-exclamation-triangle-fill text-danger fs-5 flex-shrink-0"></i>
+    <div>
+      <div class="fw-bold">Policy Violation Flagged</div>
+      <div class="small">{{ selectedRequest.policyViolationReason || 'This travel request exceeds predefined departmental policy limits.' }}</div>
     </div>
   </div>
 
@@ -224,10 +235,7 @@
         <tbody>
           <tr *ngFor="let seg of segments">
             <td>
-              <span class="badge bg-light text-dark border px-2 py-1">
-                <i class="bi me-1" [ngClass]="getSegmentIcon(seg.segmentType)"></i>
-                {{ seg.segmentType }}
-              </span>
+              <span class="fw-semibold small text-dark">{{ seg.segmentType }}</span>
             </td>
             <td>
               <strong>{{ seg.title }}</strong>
@@ -242,8 +250,7 @@
               <small class="fw-semibold text-dark">{{ seg.endTime | date:'medium' }}</small>
             </td>
             <td>
-              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 small" [title]="seg.purposeOfWork || selectedRequest.purpose">
-                <i class="bi bi-briefcase me-1"></i>
+              <span class="fw-medium small text-primary" [title]="seg.purposeOfWork || selectedRequest.purpose">
                 {{ seg.purposeOfWork || selectedRequest.purpose }}
               </span>
             </td>
@@ -367,10 +374,10 @@
               <strong *ngIf="isAssignedFinance && !isTraveler">Reimbursement Request Assigned to You:</strong>
               <strong *ngIf="!isAssignedFinance || isTraveler">Reimbursement Request Active:</strong>
               <span *ngIf="isAssignedFinance && !isTraveler" class="ms-1">
-                Traveler <strong>{{ selectedRequest.employeeName }}</strong> has submitted this claim record of <strong>${{ displayReimbursementAmount | number:'1.2-2' }}</strong> exclusively to you for payment audit & reimbursement disbursement.
+                Traveler <strong>{{ selectedRequest.employeeName }}</strong> has submitted this claim record of <strong>₹{{ displayReimbursementAmount | number:'1.2-2' }}</strong> exclusively to you for payment audit & reimbursement disbursement.
               </span>
               <span *ngIf="!isAssignedFinance || isTraveler" class="ms-1">
-                Claim record of <strong>${{ displayReimbursementAmount | number:'1.2-2' }}</strong> has been submitted to Finance Officer <strong>{{ getAssignedFinanceName() }}</strong> for payment payout processing.
+                Claim record of <strong>₹{{ displayReimbursementAmount | number:'1.2-2' }}</strong> has been submitted to <strong *ngIf="isEmployee">the Finance Team</strong><span *ngIf="!isEmployee">Finance Officer <strong>{{ getAssignedFinanceName() }}</strong></span> for payment payout processing.
               </span>
             </div>
           </div>
@@ -383,7 +390,7 @@
             <h6 class="fw-bold text-primary mb-0">
               <i class="bi bi-plus-circle-dotted me-1"></i> Submit Expense Claim
             </h6>
-            <span class="badge bg-primary-subtle text-primary small" *ngIf="currentUser">
+            <span class="fw-semibold text-primary small" *ngIf="currentUser">
               Submitted by: {{ currentUser.fullName }} ({{ currentUser.role }})
             </span>
           </div>
@@ -404,9 +411,9 @@
               </select>
             </div>
             <div class="col-md-7">
-              <label class="form-label small fw-semibold text-muted mb-1">Claim Amount ($)</label>
+              <label class="form-label small fw-semibold text-muted mb-1">Claim Amount (₹)</label>
               <div class="input-group input-group-sm">
-                <span class="input-group-text">$</span>
+                <span class="input-group-text">₹</span>
                 <input type="number" 
                        class="form-control" 
                        [(ngModel)]="expenseClaim.amount" 
@@ -439,7 +446,7 @@
                 <i class="bi bi-file-earmark-pdf-fill text-danger me-1"></i>
                 Upload Bill / Payment Transaction Proof (PDF) <span class="text-danger">*</span>
               </span>
-              <span class="badge bg-light text-muted border" style="font-size: 0.7rem;">PDF format up to 10MB</span>
+              <span class="text-muted small" style="font-size: 0.72rem;">PDF format up to 10MB</span>
             </label>
             <div class="input-group input-group-sm">
               <input type="file" 
@@ -504,7 +511,7 @@
             <tbody>
               <tr *ngFor="let exp of paginatedExpenses">
                 <td>
-                  <span class="badge bg-light text-dark border fw-bold font-monospace px-2 py-1">
+                  <span class="fw-bold font-monospace small text-dark">
                     #CLM-{{ exp.id }}
                   </span>
                   <div class="small text-muted mt-0.5" style="font-size: 0.72rem;">
@@ -512,8 +519,8 @@
                   </div>
                 </td>
                 <td>
-                  <div class="d-flex align-items-center gap-1 mb-0.5">
-                    <span class="badge bg-secondary-subtle text-secondary border small" style="font-size: 0.72rem;">
+                  <div class="mb-0.5">
+                    <span class="fw-semibold small text-secondary" style="font-size: 0.75rem;">
                       {{ exp.category }}
                     </span>
                   </div>
@@ -524,7 +531,7 @@
                     Note: {{ exp.remarks }}
                   </small>
                 </td>
-                <td class="fw-bold text-dark text-nowrap">${{ exp.amount | number:'1.2-2' }}</td>
+                <td class="fw-bold text-dark text-nowrap">₹{{ exp.amount | number:'1.2-2' }}</td>
                 <td>
                   <!-- Bill Proof PDF preview button -->
                   <div *ngIf="exp.receiptFileName || exp.receiptFileUrl">
@@ -563,9 +570,9 @@
 
                   <!-- PENDING status for Non-Assigned users (including other Finance officers) -->
                   <span *ngIf="exp.status === 'PENDING' && !isAssignedFinance" 
-                        class="badge bg-warning-subtle text-warning border border-warning-subtle small"
-                        [title]="'Pending review and approval by designated Finance Officer: ' + getAssignedFinanceName()">
-                    <i class="bi bi-hourglass-split me-1"></i>Awaiting {{ getAssignedFinanceName() }}
+                        class="fw-semibold small text-warning-emphasis"
+                        [title]="isEmployee ? 'Pending review and approval by Finance Team' : 'Pending review and approval by designated Finance Officer: ' + getAssignedFinanceName()">
+                    {{ isEmployee ? 'Awaiting Finance' : 'Awaiting ' + getAssignedFinanceName() }}
                   </span>
 
                   <!-- 2. APPROVED status: ONLY Assigned Finance Officer can Reimburse one by one -->
@@ -579,21 +586,21 @@
 
                   <!-- APPROVED status for Non-Assigned users -->
                   <span *ngIf="exp.status === 'APPROVED' && !isAssignedFinance" 
-                        class="badge bg-primary-subtle text-primary border border-primary-subtle small"
-                        [title]="'Approved by Finance, awaiting reimbursement payout by designated Finance Officer: ' + getAssignedFinanceName()">
-                    <i class="bi bi-check-circle-fill me-1"></i>Approved (Awaiting {{ getAssignedFinanceName() }} Payout)
+                        class="fw-semibold small text-primary"
+                        [title]="isEmployee ? 'Approved by Finance, awaiting reimbursement payout' : 'Approved by Finance, awaiting reimbursement payout by designated Finance Officer: ' + getAssignedFinanceName()">
+                    {{ isEmployee ? 'Approved (Awaiting Finance Payout)' : 'Approved (Awaiting ' + getAssignedFinanceName() + ' Payout)' }}
                   </span>
 
                   <!-- 3. REIMBURSED status: Settled -->
                   <span *ngIf="exp.status === 'REIMBURSED'" 
-                        class="badge bg-success-subtle text-success border border-success-subtle small">
-                    <i class="bi bi-check2-all me-1"></i>Reimbursed
+                        class="fw-semibold small text-success">
+                    Reimbursed
                   </span>
 
                   <!-- 4. REJECTED status -->
                   <span *ngIf="exp.status === 'REJECTED'" 
-                        class="badge bg-danger-subtle text-danger border border-danger-subtle small">
-                    <i class="bi bi-x-circle-fill me-1"></i>Claim Rejected
+                        class="fw-semibold small text-danger">
+                    Claim Rejected
                   </span>
                 </td>
               </tr>
@@ -629,17 +636,17 @@
 
         <!-- Bottom Action: Submit Claim Record as Request for Reimbursement Payout (After Approval by Finance) -->
         <div class="mt-4 pt-3 border-top reimbursement-claim-box">
-          <!-- Exclusive Assigned Finance Header Pill -->
-          <div class="d-flex flex-wrap align-items-center justify-content-between p-2.5 bg-white rounded-3 border mb-3 small shadow-sm">
+          <!-- Exclusive Assigned Finance Header Info -->
+          <div *ngIf="!isEmployee" class="d-flex flex-wrap align-items-center justify-content-between p-2.5 bg-white rounded-3 border mb-3 small shadow-sm">
             <div class="d-flex align-items-center gap-2">
-              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
-                <i class="bi bi-person-check-fill me-1"></i>Assigned Finance Officer
+              <span class="fw-semibold small text-primary">
+                Assigned Finance Officer:
               </span>
               <strong class="text-dark fs-6">{{ getAssignedFinanceName() }}</strong>
               <span class="text-muted">(Exclusive Reviewer for Reimbursement)</span>
             </div>
-            <span class="badge bg-light text-secondary border small">
-              <i class="bi bi-shield-lock-fill text-success me-1"></i>Restricted to Assigned Finance
+            <span class="fw-semibold small text-success">
+              Restricted to Assigned Finance
             </span>
           </div>
 
@@ -648,19 +655,19 @@
               <div class="d-flex align-items-center gap-2 mb-1">
                 <i class="bi bi-wallet2 text-success fs-5"></i>
                 <h6 class="mb-0 fw-bold text-dark">Trip Reimbursement Claim Record</h6>
-                <span *ngIf="selectedRequest.status === 'APPROVED'" class="badge bg-success-subtle text-success border border-success-subtle small">
-                  <i class="bi bi-check-circle-fill me-1"></i>Trip Approved by Finance
+                <span *ngIf="selectedRequest.status === 'APPROVED'" class="fw-semibold small text-success">
+                  Trip Approved by Finance
                 </span>
-                <span *ngIf="selectedRequest.status !== 'APPROVED'" class="badge bg-warning-subtle text-warning border border-warning-subtle small">
-                  <i class="bi bi-hourglass-split me-1"></i>Trip {{ formatStatusLabel(selectedRequest.status) }}
+                <span *ngIf="selectedRequest.status !== 'APPROVED'" class="fw-semibold small text-warning-emphasis">
+                  Trip {{ formatStatusLabel(selectedRequest.status) }}
                 </span>
               </div>
               <div class="small text-muted">
                 <span>Total Claims: <strong>{{ expenses.length }}</strong></span> &bull;
-                <span>Total Amount: <strong class="text-dark">${{ totalExpensesAmount | number:'1.2-2' }}</strong></span> &bull;
-                <span>Reimbursed: <strong class="text-success">${{ totalReimbursedAmount | number:'1.2-2' }}</strong></span>
+                <span>Total Amount: <strong class="text-dark">₹{{ totalExpensesAmount | number:'1.2-2' }}</strong></span> &bull;
+                <span>Reimbursed: <strong class="text-success">₹{{ totalReimbursedAmount | number:'1.2-2' }}</strong></span>
                 <span *ngIf="pendingReimbursementAmount > 0" class="ms-1">
-                  &bull; Pending Payout: <strong class="text-primary">${{ pendingReimbursementAmount | number:'1.2-2' }}</strong>
+                  &bull; Pending Payout: <strong class="text-primary">₹{{ pendingReimbursementAmount | number:'1.2-2' }}</strong>
                 </span>
               </div>
             </div>
@@ -674,26 +681,26 @@
                         type="button" 
                         class="btn btn-success fw-bold d-inline-flex align-items-center shadow-sm px-3 py-2 btn-submit-reimbursement"
                         (click)="onSubmitReimbursementClaim()"
-                        [title]="'Submit official claim record exclusively to assigned Finance Officer ' + getAssignedFinanceName()">
+                        [title]="isEmployee ? 'Submit official claim record to Finance Team for payout' : 'Submit official claim record exclusively to assigned Finance Officer ' + getAssignedFinanceName()">
                   <i class="bi bi-send-check-fill me-2 fs-6"></i>
-                  {{ (reimbursementRequested ? 'Re-Submit Claim to ' + getAssignedFinanceName() : 'Submit Claim Record to ' + getAssignedFinanceName()) + ' ($' + (displayReimbursementAmount | number:'1.2-2') + ')' }}
+                  {{ (reimbursementRequested ? 'Re-Submit Claim' : 'Submit Claim Record') + (isEmployee ? ' to Finance' : ' to ' + getAssignedFinanceName()) + ' (₹' + (displayReimbursementAmount | number:'1.2-2') + ')' }}
                 </button>
 
                 <!-- When viewer is Assigned Finance and claims are awaiting payout -->
                 <div *ngIf="isAssignedFinance && !isTraveler && !allExpensesReimbursed && expenses.length > 0" class="d-inline-flex align-items-center gap-2">
-                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fs-6 fw-semibold">
-                    <i class="bi bi-inbox-fill me-1"></i>Assigned to You for Reimbursement Audit
+                  <span class="fw-semibold text-primary fs-6">
+                    Assigned to You for Reimbursement Audit
                   </span>
                 </div>
 
                 <!-- When viewer is NOT traveler, NOT assigned finance, NOT admin -->
                 <div *ngIf="!canSubmitReimbursement && !isAssignedFinance && !allExpensesReimbursed && expenses.length > 0" class="small text-muted">
-                  <i class="bi bi-lock me-1"></i> Assigned exclusively to Finance Officer {{ getAssignedFinanceName() }}
+                  <i class="bi bi-lock me-1"></i> {{ isEmployee ? 'Assigned exclusively to Finance Team' : 'Assigned exclusively to Finance Officer ' + getAssignedFinanceName() }}
                 </div>
 
                 <!-- When all claims are already fully reimbursed -->
                 <div *ngIf="allExpensesReimbursed" class="d-flex align-items-center text-success fw-semibold small">
-                  <i class="bi bi-check-circle-fill me-1 fs-5"></i> All Claims Fully Reimbursed ($0.00 Remaining)
+                  <i class="bi bi-check-circle-fill me-1 fs-5"></i> All Claims Fully Reimbursed (₹0.00 Remaining)
                 </div>
 
                 <!-- When 0 claims added yet -->
@@ -722,11 +729,11 @@
               <div class="flex-grow-1">
                 <!-- If current user is Traveler or Non-Finance viewer -->
                 <div *ngIf="isTraveler || (!isAssignedFinance && !isAdmin)">
-                  <strong>Reimbursement Request Active:</strong> Claim record of <strong>${{ displayReimbursementAmount | number:'1.2-2' }}</strong> has been submitted exclusively to your assigned Finance Officer <strong>{{ getAssignedFinanceName() }}</strong> for payment payout processing. No other user in the system has access to disburse this payment.
+                  <strong>Reimbursement Request Active:</strong> Claim record of <strong>₹{{ displayReimbursementAmount | number:'1.2-2' }}</strong> has been submitted exclusively to <span *ngIf="!isEmployee">your assigned Finance Officer <strong>{{ getAssignedFinanceName() }}</strong></span><strong *ngIf="isEmployee">the Finance Team</strong> for payment payout processing. No other user in the system has access to disburse this payment.
                 </div>
                 <!-- If current user is Assigned Finance Officer -->
                 <div *ngIf="isAssignedFinance && !isTraveler">
-                  <strong>Reimbursement Request Assigned to You:</strong> Traveler <strong>{{ selectedRequest.employeeName }}</strong> has submitted this claim record of <strong>${{ displayReimbursementAmount | number:'1.2-2' }}</strong> exclusively to you for reimbursement payout audit and disbursement.
+                  <strong>Reimbursement Request Assigned to You:</strong> Traveler <strong>{{ selectedRequest.employeeName }}</strong> has submitted this claim record of <strong>₹{{ displayReimbursementAmount | number:'1.2-2' }}</strong> exclusively to you for reimbursement payout audit and disbursement.
                 </div>
               </div>
             </div>
@@ -770,7 +777,7 @@
           </div>
           <div class="col-sm-4">
             <span class="text-muted small d-block">Claim Amount</span>
-            <strong class="text-success fs-6">${{ previewingExpense.amount | number:'1.2-2' }}</strong>
+            <strong class="text-success fs-6">₹{{ previewingExpense.amount | number:'1.2-2' }}</strong>
           </div>
           <div class="col-sm-4">
             <span class="text-muted small d-block">Audit Status</span>
@@ -838,7 +845,7 @@
         <div class="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded border">
           <div>
             <span class="fw-semibold text-dark small">{{ previewingSegment.proofFileName || 'Booking_Proof.pdf' }}</span>
-            <span class="badge bg-secondary ms-2">{{ previewingSegment.segmentType }}</span>
+            <span class="fw-semibold text-muted small ms-2">({{ previewingSegment.segmentType }})</span>
           </div>
           <button type="button" class="btn btn-sm btn-primary" (click)="downloadOrOpenSegmentPdf(previewingSegment)">
             <i class="bi bi-download me-1"></i> Download / Open in New Tab

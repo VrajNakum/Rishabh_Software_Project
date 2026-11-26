@@ -2,9 +2,9 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TravelClass, Role } from '../models/enums.model';
-import { TravelRequestCreateDto, TravelRequestResponseDto } from '../models/travel-request.model';
+import { PredefinedTravelPolicyDto, TravelRequestCreateDto, TravelRequestResponseDto } from '../models/travel-request.model';
 import { CurrentUser } from '../services/user-context.service';
-import { getStatusIcon, formatStatusLabel } from '../shared/status-utils';
+import { getStatusIcon, formatStatusLabel, evaluateTravelPolicy, PolicyEvaluationResult, DEFAULT_PREDEFINED_POLICIES } from '../shared/status-utils';
 import { PaginationComponent } from '../shared/pagination/pagination.component';
 
 @Component({
@@ -16,6 +16,7 @@ import { PaginationComponent } from '../shared/pagination/pagination.component';
 })
 export class MyRequestsAndNewTravelComponent {
   @Input() requests: TravelRequestResponseDto[] = [];
+  @Input() policies: PredefinedTravelPolicyDto[] = DEFAULT_PREDEFINED_POLICIES;
   @Input() statusFilter: 'ALL' | 'APPROVED' | 'PENDING' | 'DRAFT' | 'REJECTED' = 'ALL';
   @Input() currentUser: CurrentUser | null = null;
   @Input() editingDraftId: number | null = null;
@@ -43,6 +44,66 @@ export class MyRequestsAndNewTravelComponent {
 
   getStatusIcon = getStatusIcon;
   formatStatusLabel = formatStatusLabel;
+
+  private formatLocalIsoDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private addDaysToIsoDate(isoDate: string, days: number): string {
+    const parts = isoDate.split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) {
+      return isoDate;
+    }
+    const [year, month, day] = parts;
+    return this.formatLocalIsoDate(new Date(year, month - 1, day + days));
+  }
+
+  get todayIsoDate(): string {
+    return this.formatLocalIsoDate(new Date());
+  }
+
+  get minStartDate(): string {
+    return this.addDaysToIsoDate(this.todayIsoDate, 1);
+  }
+
+  get minEndDate(): string {
+    if (this.newRequest?.startDate && this.newRequest.startDate >= this.minStartDate) {
+      return this.addDaysToIsoDate(this.newRequest.startDate, 1);
+    }
+    return this.addDaysToIsoDate(this.minStartDate, 1);
+  }
+
+  get isStartDateInvalid(): boolean {
+    return !!this.newRequest?.startDate && this.newRequest.startDate <= this.todayIsoDate;
+  }
+
+  get isEndDateInvalid(): boolean {
+    if (!this.newRequest?.endDate) {
+      return false;
+    }
+    if (this.newRequest.startDate) {
+      return this.newRequest.endDate <= this.newRequest.startDate;
+    }
+    return this.newRequest.endDate <= this.minStartDate;
+  }
+
+  onStartDateChange(value: string): void {
+    this.newRequest.startDate = value;
+    if (this.newRequest.endDate && value && this.newRequest.endDate <= value) {
+      this.newRequest.endDate = '';
+    }
+  }
+
+  get livePolicyEvaluation(): PolicyEvaluationResult {
+    return evaluateTravelPolicy(
+      this.newRequest?.travelClass,
+      this.newRequest?.estimatedBudget,
+      this.policies
+    );
+  }
 
   get isAdmin(): boolean {
     return this.currentUser?.role === Role.ADMIN || (this.currentUser?.role as string) === 'ADMIN';

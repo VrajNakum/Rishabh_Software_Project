@@ -151,4 +151,79 @@ describe('MyRequestsAndNewTravelComponent', () => {
     expect(component.myRequests.length).toBe(1);
     expect(component.myRequests[0].id).toBe(99);
   });
+
+  it('should flag policy violation when entered budget exceeds selected travel class limit', () => {
+    component.currentUser = mockEmployeeUser;
+    component.newRequest = {
+      ...component.newRequest,
+      estimatedBudget: 1500,
+      travelClass: TravelClass.ECONOMY // ECONOMY max limit: ₹2000.00
+    };
+    fixture.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+
+    expect(component.livePolicyEvaluation.violated).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Policy Violation Flagged');
+
+    // Simulate user typing budget crossing ECONOMY limit (₹2500 > ₹2000)
+    const budgetInput = (fixture.nativeElement as HTMLElement).querySelector('input[name="estimatedBudget"]') as HTMLInputElement;
+    budgetInput.value = '2500';
+    budgetInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(component.livePolicyEvaluation.violated).toBe(true);
+    expect(component.livePolicyEvaluation.budgetExceeded).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Policy Violation Flagged');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('exceeds ECONOMY travel class max budget limit (₹2000.00)');
+
+    // Switching to BUSINESS clears violation for ₹5000 (BUSINESS limit: ₹5000.00)
+    const classSelect = (fixture.nativeElement as HTMLElement).querySelector('select[name="travelClass"]') as HTMLSelectElement;
+    classSelect.value = TravelClass.BUSINESS;
+    classSelect.dispatchEvent(new Event('change'));
+    budgetInput.value = '5000';
+    budgetInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(component.livePolicyEvaluation.violated).toBe(false);
+
+    // Entering ₹5500 under BUSINESS crosses BUSINESS limit (₹5000.00) -> flags violation
+    budgetInput.value = '5500';
+    budgetInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(component.livePolicyEvaluation.violated).toBe(true);
+    expect(component.livePolicyEvaluation.budgetExceeded).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('exceeds BUSINESS travel class max budget limit (₹5000.00)');
+  });
+
+  it('should enforce Start Date min after current date and End Date min after Start Date on input fields', () => {
+    const startInput = (fixture.nativeElement as HTMLElement).querySelector('input[name="startDate"]') as HTMLInputElement;
+    const endInput = (fixture.nativeElement as HTMLElement).querySelector('input[name="endDate"]') as HTMLInputElement;
+
+    expect(startInput.required).toBe(true);
+    expect(endInput.required).toBe(true);
+    expect(startInput.min).toBe(component.minStartDate);
+    expect(component.minStartDate > component.todayIsoDate).toBe(true);
+
+    // Selecting Start Date updates End Date min to the day after Start Date and clears invalid End Date
+    component.newRequest = { ...component.newRequest, endDate: component.minStartDate };
+    component.onStartDateChange(component.minStartDate);
+    fixture.detectChanges();
+
+    expect(component.newRequest.endDate).toBe('');
+    expect(component.minEndDate > component.minStartDate).toBe(true);
+    expect(endInput.min).toBe(component.minEndDate);
+
+    // Manual entry of current/past startDate or endDate <= startDate marks fields invalid
+    component.newRequest = {
+      ...component.newRequest,
+      startDate: component.todayIsoDate,
+      endDate: component.todayIsoDate
+    };
+    fixture.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+
+    expect(component.isStartDateInvalid).toBe(true);
+    expect(component.isEndDateInvalid).toBe(true);
+  });
 });

@@ -397,4 +397,38 @@ describe('TripDetailsComponent', () => {
 
     alertSpy.mockRestore();
   });
+
+  it('should hide Assigned Finance Officer details when logged in as EMPLOYEE', () => {
+    fixture.componentRef.setInput('currentUser', {
+      id: 2,
+      fullName: 'Alice',
+      email: 'alice@company.com',
+      role: Role.EMPLOYEE,
+      departmentName: 'Engineering',
+      managerId: 1,
+      managerName: 'Bob Miller',
+      financeId: 3,
+      financeName: 'Carol Finance'
+    });
+    component.selectedRequest = { ...sampleRequest };
+    component.expenses = [{
+      id: 101,
+      travelRequestId: 20,
+      category: ExpenseCategory.FOOD,
+      amount: 500,
+      receiptFileName: 'meal.pdf',
+      receiptFileUrl: 'data:application/pdf;base64,JVBERi0xLjQK...',
+      paymentReason: 'Client dinner',
+      status: 'PENDING' as any,
+      createdAt: '2026-12-11T10:00:00'
+    }];
+    component.reimbursementRequested = true;
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(component.isEmployee).toBe(true);
+    expect(text).not.toContain('Assigned Finance Officer:');
+    expect(text).not.toContain('Carol Finance');
+    expect(text).toContain('Awaiting Finance');
+  });
 });

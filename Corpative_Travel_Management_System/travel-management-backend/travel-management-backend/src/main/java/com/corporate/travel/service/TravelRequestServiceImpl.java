@@ -6,7 +6,6 @@ import com.corporate.travel.dto.TravelRequestCreateDto;
 import com.corporate.travel.dto.TravelRequestResponseDto;
 
 import com.corporate.travel.entity.ApprovalAuditLog;
-import com.corporate.travel.entity.Department;
 import com.corporate.travel.entity.Expense;
 import com.corporate.travel.entity.ItinerarySegment;
 import com.corporate.travel.entity.TravelPolicy;
@@ -25,8 +24,10 @@ import com.corporate.travel.repository.ItinerarySegmentRepository;
 import com.corporate.travel.repository.TravelPolicyRepository;
 import com.corporate.travel.repository.TravelRequestRepository;
 import com.corporate.travel.repository.UserRepository;
-import java.util.ArrayList;
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +41,7 @@ public class TravelRequestServiceImpl implements TravelRequestService {
     private final ApprovalAuditLogRepository approvalAuditLogRepository;
     private final ItinerarySegmentRepository itinerarySegmentRepository;
     private final ExpenseRepository expenseRepository;
+    private final AppNotificationService appNotificationService;
 
     // Explicit constructor injection (SonarQube best practice)
     public TravelRequestServiceImpl(
@@ -48,13 +50,15 @@ public class TravelRequestServiceImpl implements TravelRequestService {
             TravelPolicyRepository travelPolicyRepository,
             ApprovalAuditLogRepository approvalAuditLogRepository,
             ItinerarySegmentRepository itinerarySegmentRepository,
-            ExpenseRepository expenseRepository) {
+            ExpenseRepository expenseRepository,
+            AppNotificationService appNotificationService) {
         this.travelRequestRepository = travelRequestRepository;
         this.userRepository = userRepository;
         this.travelPolicyRepository = travelPolicyRepository;
         this.approvalAuditLogRepository = approvalAuditLogRepository;
         this.itinerarySegmentRepository = itinerarySegmentRepository;
         this.expenseRepository = expenseRepository;
+        this.appNotificationService = appNotificationService;
     }
 
     @Override
@@ -68,7 +72,7 @@ public class TravelRequestServiceImpl implements TravelRequestService {
         }
 
         RequestStatus initialStatus = dto.isDraft() ? RequestStatus.DRAFT : RequestStatus.PENDING_MANAGER;
-        PolicyCheckResult policyResult = checkPolicy(employee.getDepartment(), dto);
+        PolicyCheckResult policyResult = checkPolicy(dto);
 
         TravelRequest travelRequest = TravelRequest.builder()
                 .employee(employee)
@@ -95,6 +99,10 @@ public class TravelRequestServiceImpl implements TravelRequestService {
                 .build();
         approvalAuditLogRepository.save(initialLog);
 
+        if (!dto.isDraft()) {
+            appNotificationService.notifyTravelRequestSubmitted(saved);
+        }
+
         return mapToDto(saved);
     }
 
@@ -118,7 +126,7 @@ public class TravelRequestServiceImpl implements TravelRequestService {
             newStatus = previousStatus;
         }
 
-        PolicyCheckResult policyResult = checkPolicy(request.getEmployee().getDepartment(), dto);
+        PolicyCheckResult policyResult = checkPolicy(dto);
 
         request.setDestination(dto.getDestination());
         request.setStartDate(dto.getStartDate());
@@ -141,6 +149,10 @@ public class TravelRequestServiceImpl implements TravelRequestService {
                 .comments(dto.isDraft() ? "Draft updated" : "Request details & estimated budget updated")
                 .build();
         approvalAuditLogRepository.save(log);
+
+        if (!dto.isDraft() && previousStatus == RequestStatus.DRAFT) {
+            appNotificationService.notifyTravelRequestSubmitted(updated);
+        }
 
         return mapToDto(updated);
     }
@@ -195,6 +207,9 @@ public class TravelRequestServiceImpl implements TravelRequestService {
         if (logs != null && !logs.isEmpty()) {
             approvalAuditLogRepository.deleteAll(logs);
         }
+
+        // Delete associated notifications if any
+        appNotificationService.deleteByRequestId(id);
 
         travelRequestRepository.delete(request);
     }
@@ -302,6 +317,8 @@ public class TravelRequestServiceImpl implements TravelRequestService {
                 .build();
         approvalAuditLogRepository.save(auditLog);
 
+        appNotificationService.notifyTravelRequestReviewed(updated, reviewer, isApproval, dto.getComments());
+
         return mapToDto(updated);
     }
 
@@ -328,35 +345,47 @@ public class TravelRequestServiceImpl implements TravelRequestService {
                 .toList();
     }
 
-    // Policy Check Logic
-    private PolicyCheckResult checkPolicy(Department department, TravelRequestCreateDto dto) {
-        Optional<TravelPolicy> policyOpt = travelPolicyRepository.findByDepartmentId(department.getId());
-        if (policyOpt.isEmpty()) {
-            return new PolicyCheckResult(false, null);
-        }
+    @Override
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getPredefinedPolicies() {
+        return travelPolicyRepository.findAll().stream()
+                .map(p -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("departmentName", p.getDepartment() != null ? p.getDepartment().getName() : "General");
+                    item.put("maxBudgetLimit", p.getMaxBudgetLimit());
+                    item.put("allowedTravelClass", p.getAllowedTravelClass().name());
+                    return item;
+                })
+                .toList();
+    }
 
-        TravelPolicy policy = policyOpt.get();
-        List<String> violations = new ArrayList<>();
+    // Policy Check Logic (uses travel_policies row matched by selected TravelClass)
+    private PolicyCheckResult checkPolicy(TravelRequestCreateDto dto) {
+        TravelClass requestedClass = dto.getTravelClass() != null ? dto.getTravelClass() : TravelClass.ECONOMY;
+        Optional<TravelPolicy> policyOpt = travelPolicyRepository.findFirstByAllowedTravelClassOrderByIdAsc(requestedClass);
 
-        if (dto.getEstimatedBudget().compareTo(policy.getMaxBudgetLimit()) > 0) {
-            violations.add(String.format("Estimated budget ($%s) exceeds department limit ($%s)",
-                    dto.getEstimatedBudget(), policy.getMaxBudgetLimit()));
-        }
+        BigDecimal maxBudgetLimit = policyOpt.map(TravelPolicy::getMaxBudgetLimit)
+                .orElseGet(() -> defaultLimitForClass(requestedClass));
 
-        if (isClassHigherThanAllowed(dto.getTravelClass(), policy.getAllowedTravelClass())) {
-            violations.add(String.format("Requested travel class [%s] exceeds allowed class [%s]",
-                    dto.getTravelClass(), policy.getAllowedTravelClass()));
-        }
-
-        if (!violations.isEmpty()) {
-            return new PolicyCheckResult(true, String.join("; ", violations));
+        if (dto.getEstimatedBudget() != null && dto.getEstimatedBudget().compareTo(maxBudgetLimit) > 0) {
+            String reason = String.format(
+                    "Estimated budget (₹%s) exceeds %s travel class max budget limit (₹%s)",
+                    dto.getEstimatedBudget(), requestedClass, maxBudgetLimit);
+            return new PolicyCheckResult(true, reason);
         }
 
         return new PolicyCheckResult(false, null);
     }
 
-    private boolean isClassHigherThanAllowed(TravelClass requested, TravelClass allowed) {
-        return requested.ordinal() > allowed.ordinal();
+    private BigDecimal defaultLimitForClass(TravelClass travelClass) {
+        if (travelClass == null) {
+            return new BigDecimal("2000.00");
+        }
+        return switch (travelClass) {
+            case BUSINESS -> new BigDecimal("5000.00");
+            case PREMIUM_ECONOMY -> new BigDecimal("3500.00");
+            case ECONOMY -> new BigDecimal("2000.00");
+        };
     }
 
     private TravelRequestResponseDto mapToDto(TravelRequest entity) {

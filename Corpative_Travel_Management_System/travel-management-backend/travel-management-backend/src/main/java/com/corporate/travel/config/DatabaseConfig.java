@@ -16,7 +16,7 @@ import java.sql.DriverManager;
 @Slf4j
 public class DatabaseConfig {
 
-    @Value("${spring.datasource.url:jdbc:postgresql://localhost:5432/travel_management_db}")
+    @Value("${spring.datasource.url:jdbc:postgresql://localhost:5080/travel_management_db}")
     private String pgUrl;
 
     @Value("${spring.datasource.username:postgres}")

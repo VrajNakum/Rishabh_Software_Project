@@ -140,6 +140,11 @@
         </span>
       </button>
     </li>
+    <li class="nav-item" *ngIf="canViewEmployeeDetails">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'employee-details'" (click)="switchTab('employee-details')">
+        <i class="bi bi-people-fill me-2"></i> View Employee Details
+      </button>
+    </li>
     <li class="nav-item">
       <button type="button" class="nav-link" [class.active]="activeTab === 'profile'" (click)="switchTab('profile')">
         <i class="bi bi-person-circle me-2"></i> My Profile
@@ -156,6 +161,7 @@
   <div [hidden]="activeTab !== 'requests'" class="tab-pane-instant">
     <app-my-requests-and-new-travel
       [requests]="requests"
+      [policies]="policies"
       [statusFilter]="statusFilter"
       [currentUser]="currentUser"
       [editingDraftId]="editingDraftId"
@@ -238,6 +244,7 @@
       (userCreated)="onUserCreated($event)"
       (userDeleted)="onUserDeleted($event)"
       (userAssignmentsUpdated)="onUserAssignmentsUpdated($event)"
+      (userRoleUpdated)="onUserRoleUpdated($event)"
       (userSwitched)="onUserSwitched($event)"
       (budgetUpdated)="onAdminBudgetUpdated($event)"
       (deleteRequest)="deleteRequest($event)"
@@ -311,17 +318,17 @@
             </div>
             <div class="flex-grow-1">
               <div class="d-flex align-items-center gap-2 mb-1">
-                <span class="badge" [ngClass]="notif.isRead ? 'bg-secondary' : 'bg-primary'">
+                <span class="fw-bold small text-uppercase" [ngClass]="notif.isRead ? 'text-secondary' : 'text-primary'">
                   {{ notif.type }}
                 </span>
                 <h6 class="mb-0 fw-bold text-dark">{{ notif.title }}</h6>
-                <span *ngIf="!notif.isRead" class="badge bg-danger rounded-pill" style="font-size: 0.68rem;">New</span>
+                <span *ngIf="!notif.isRead" class="fw-bold text-danger small" style="font-size: 0.72rem;">New</span>
               </div>
               <p class="small text-dark mb-1" style="line-height: 1.4;">{{ notif.message }}</p>
               <div class="d-flex align-items-center gap-3 small text-muted" style="font-size: 0.75rem;">
-                <span><i class="bi bi-clock me-1"></i>{{ notif.createdAt | date:'medium' }}</span>
-                <span *ngIf="notif.requestId" class="fw-semibold text-primary"><i class="bi bi-link-45deg me-1"></i>Trip #{{ notif.requestId }}</span>
-                <span><i class="bi bi-person me-1"></i>From: {{ notif.senderName || 'System' }}</span>
+                <span>{{ notif.createdAt | date:'medium' }}</span>
+                <span *ngIf="notif.requestId" class="fw-semibold text-primary">Trip #{{ notif.requestId }}</span>
+                <span>From: {{ notif.senderName || 'System' }}</span>
               </div>
             </div>
           </div>
@@ -342,6 +349,11 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- TAB: View Employee Details (Manager, Finance, and Admin Only) -->
+  <div *ngIf="canViewEmployeeDetails" [hidden]="activeTab !== 'employee-details'" class="tab-pane-instant">
+    <app-employee-details [currentUser]="currentUser"></app-employee-details>
   </div>
 
   <!-- TAB 6: My Profile (Available for All Users) -->

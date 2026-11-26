@@ -111,6 +111,10 @@ export class TripDetailsComponent {
     return this.currentUser?.role === Role.FINANCE || (this.currentUser?.role as string) === 'FINANCE';
   }
 
+  get isEmployee(): boolean {
+    return this.currentUser?.role === Role.EMPLOYEE || (this.currentUser?.role as string) === 'EMPLOYEE';
+  }
+
   get isTraveler(): boolean {
     return !!this.currentUser && !!this.selectedRequest && this.currentUser.id === this.selectedRequest.employeeId;
   }

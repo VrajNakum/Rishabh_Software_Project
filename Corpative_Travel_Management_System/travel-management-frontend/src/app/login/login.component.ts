@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UserContextService, CurrentUser } from '../services/user-context.service';
 import { Role } from '../models/enums.model';
+import { getRoleTextClass } from '../shared/status-utils';
 
 @Component({
   selector: 'app-login',
@@ -16,7 +17,6 @@ export class LoginComponent implements OnInit {
 
   emailOrUsername = '';
   password = '';
-  showPassword = false;
   rememberMe = true;
   errorMessage: string | null = null;
   isSubmitting = false;
@@ -27,7 +27,6 @@ export class LoginComponent implements OnInit {
   forgotPasswordEmail = '';
   verifiedUser: CurrentUser | null = null;
   newPassword = '';
-  showNewPassword = false;
   isVerifyingEmail = false;
   isJoiningViaEmail = false;
   isResettingPassword = false;
@@ -35,6 +34,7 @@ export class LoginComponent implements OnInit {
   forgotPasswordErrorMessage: string | null = null;
 
   demoUsers: CurrentUser[] = [];
+  getRoleTextClass = getRoleTextClass;
 
   constructor(public userContext: UserContextService) {}
 

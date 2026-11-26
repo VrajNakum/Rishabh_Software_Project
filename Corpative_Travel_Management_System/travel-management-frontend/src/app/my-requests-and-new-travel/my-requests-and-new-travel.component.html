@@ -21,29 +21,6 @@
         Editing <strong>Draft #{{ editingDraftId }}</strong>. Modify the input fields below and click <strong>Submit for Approval</strong> or <strong>Update Draft</strong>.
       </div>
 
-      <!-- Logged-in Employee Identity Confirmation & Approval Routing Info -->
-      <div *ngIf="currentUser" class="mb-3 p-2.5 bg-light rounded border small">
-        <div class="d-flex align-items-center justify-content-between mb-1.5">
-          <div>
-            <span class="text-muted"><i class="bi bi-person-fill text-primary me-1"></i>Traveler:</span>
-            <strong class="text-dark ms-1">{{ currentUser.fullName }}</strong>
-          </div>
-          <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-            {{ currentUser.departmentName || 'General' }}
-          </span>
-        </div>
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-1 border-top mt-1" style="font-size: 0.78rem;">
-          <span class="text-muted d-flex align-items-center">
-            <i class="bi bi-person-up text-primary me-1"></i> Manager Approval:
-            <strong class="text-dark ms-1">{{ currentUser.managerName || 'Bob Miller (user1manager)' }}</strong>
-          </span>
-          <span class="text-muted d-flex align-items-center">
-            <i class="bi bi-cash-coin text-success me-1"></i> Finance Approval:
-            <strong class="text-dark ms-1">{{ currentUser.financeName || 'Carol Davis (user1finance)' }}</strong>
-          </span>
-        </div>
-      </div>
-
       <form (ngSubmit)="onFormSubmit(false)">
         <div class="mb-3">
           <label class="form-label small fw-semibold">Destination</label>
@@ -51,24 +28,61 @@
         </div>
         <div class="row mb-3">
           <div class="col">
-            <label class="form-label small fw-semibold">Start Date</label>
-            <input type="date" class="form-control" [(ngModel)]="newRequest.startDate" name="startDate" required>
+            <label class="form-label small fw-semibold">Start Date <span class="text-danger">*</span></label>
+            <input type="date"
+                   class="form-control"
+                   [class.is-invalid]="isStartDateInvalid"
+                   [min]="minStartDate"
+                   [ngModel]="newRequest.startDate"
+                   (ngModelChange)="onStartDateChange($event)"
+                   name="startDate"
+                   required>
+            <div *ngIf="isStartDateInvalid" class="invalid-feedback d-block">
+              Start date must be after the current date.
+            </div>
           </div>
           <div class="col">
-            <label class="form-label small fw-semibold">End Date</label>
-            <input type="date" class="form-control" [(ngModel)]="newRequest.endDate" name="endDate" required>
+            <label class="form-label small fw-semibold">End Date <span class="text-danger">*</span></label>
+            <input type="date"
+                   class="form-control"
+                   [class.is-invalid]="isEndDateInvalid"
+                   [min]="minEndDate"
+                   [(ngModel)]="newRequest.endDate"
+                   name="endDate"
+                   required>
+            <div *ngIf="isEndDateInvalid" class="invalid-feedback d-block">
+              End date must be after the start date.
+            </div>
           </div>
         </div>
         <div class="row mb-3">
           <div class="col">
-            <label class="form-label small fw-semibold">Estimated Budget ($) To Travel</label>
-            <input  type="number" class="form-control" [(ngModel)]="newRequest.estimatedBudget" name="estimatedBudget" required >
+            <label class="form-label small fw-semibold">Estimated Budget (₹) To Travel</label>
+            <input type="number"
+                   class="form-control"
+                   [class.is-invalid]="livePolicyEvaluation.budgetExceeded"
+                   [(ngModel)]="newRequest.estimatedBudget"
+                   name="estimatedBudget"
+                   required>
           </div>
           <div class="col">
             <label class="form-label small fw-semibold">Travel Class</label>
-            <select class="form-select" [(ngModel)]="newRequest.travelClass" name="travelClass">
+            <select class="form-select"
+                    [(ngModel)]="newRequest.travelClass"
+                    name="travelClass">
               <option *ngFor="let tc of travelClasses" [value]="tc">{{ tc }}</option>
             </select>
+          </div>
+        </div>
+
+        <!-- Live System Policy Violation Flag Alert -->
+        <div *ngIf="livePolicyEvaluation.violated"
+             class="alert alert-danger py-2 px-3 small mb-3 d-flex align-items-start gap-2 border-danger"
+             role="alert">
+          <i class="bi bi-exclamation-triangle-fill text-danger fs-5 flex-shrink-0"></i>
+          <div>
+            <div class="fw-bold">Policy Violation Flagged</div>
+            <div>{{ livePolicyEvaluation.reason }}</div>
           </div>
         </div>
         <div class="mb-4">
@@ -166,9 +180,15 @@
                   <i class="bi bi-chat-quote-fill me-1"></i>
                   <strong>Rejection Note:</strong> {{ req.policyViolationReason }}
                 </div>
+                <div *ngIf="req.status !== 'REJECTED' && req.policyViolated && req.policyViolationReason"
+                     class="text-danger small mt-1 p-1 bg-warning-subtle rounded border border-warning-subtle"
+                     style="font-size: 0.75rem;">
+                  <i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>
+                  <strong>Violation Flag:</strong> {{ req.policyViolationReason }}
+                </div>
               </td>
               <td class="small">{{ req.startDate }} to {{ req.endDate }}</td>
-              <td>${{ req.estimatedBudget | number:'1.2-2' }}</td>
+              <td>₹{{ req.estimatedBudget | number:'1.2-2' }}</td>
               <td>
                 <!-- Status Label (Clean Font & Color): If draft, clickable to load into input fields -->
                 <button *ngIf="req.status === 'DRAFT'"
@@ -184,14 +204,14 @@
                 </span>
               </td>
               <td>
-                <span *ngIf="req.status === 'REJECTED'" class="badge bg-danger-subtle text-danger" title="{{ req.policyViolationReason }}">
-                  <i class="bi bi-x-octagon"></i> Rejected
+                <span *ngIf="req.status === 'REJECTED'" class="fw-semibold small text-danger" title="{{ req.policyViolationReason }}">
+                  Rejected
                 </span>
-                <span *ngIf="req.status !== 'REJECTED' && req.policyViolated" class="badge bg-danger-subtle text-danger" title="{{ req.policyViolationReason }}">
-                  <i class="bi bi-exclamation-triangle"></i> Exceeded
+                <span *ngIf="req.status !== 'REJECTED' && req.policyViolated" class="fw-semibold small text-danger" title="{{ req.policyViolationReason }}">
+                  Exceeded
                 </span>
-                <span *ngIf="req.status !== 'REJECTED' && !req.policyViolated" class="badge bg-success-subtle text-success">
-                  <i class="bi bi-shield-check"></i> Compliant
+                <span *ngIf="req.status !== 'REJECTED' && !req.policyViolated" class="fw-semibold small text-success">
+                  Compliant
                 </span>
               </td>
               <td>

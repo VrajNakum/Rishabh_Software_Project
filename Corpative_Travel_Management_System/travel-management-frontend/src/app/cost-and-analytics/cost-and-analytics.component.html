@@ -27,13 +27,13 @@
   <div class="col-md-2 col-6">
     <div class="rs-card p-3 text-center">
       <div class="text-muted small">Est. Budget</div>
-      <div class="fs-4 fw-bold text-info">${{ effectiveCostSummary.totalEstimatedBudget | number:'1.0-0' }}</div>
+      <div class="fs-4 fw-bold text-info">₹{{ effectiveCostSummary.totalEstimatedBudget | number:'1.0-0' }}</div>
     </div>
   </div>
   <div class="col-md-2 col-6">
     <div class="rs-card p-3 text-center card-stat-reimbursed">
       <div class="text-muted small">Reimbursed</div>
-      <div class="fs-4 fw-bold text-success">${{ effectiveCostSummary.totalActualReimbursedSpend | number:'1.2-2' }}</div>
+      <div class="fs-4 fw-bold text-success">₹{{ effectiveCostSummary.totalActualReimbursedSpend | number:'1.2-2' }}</div>
     </div>
   </div>
 </div>
@@ -41,7 +41,7 @@
 <div class="rs-card p-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h5 class="fw-bold mb-0"><i class="bi bi-pie-chart me-1"></i> Department Spend Breakdown</h5>
-    <span class="badge bg-light text-dark border" *ngIf="departmentSpends && departmentSpends.length > 0">
+    <span class="fw-semibold small text-muted" *ngIf="departmentSpends && departmentSpends.length > 0">
       {{ departmentSpends.length }} Departments
     </span>
   </div>
@@ -57,17 +57,16 @@
       <tbody>
         <tr *ngFor="let dept of paginatedDepartmentSpends">
           <td>
-            <div class="d-flex align-items-center">
-              <i class="bi bi-building me-2 text-primary"></i>
-              <strong>{{ dept.departmentName }}</strong>
-            </div>
+            <span class="fw-semibold" [ngClass]="getDepartmentTextClass(dept.departmentName)">
+              {{ dept.departmentName }}
+            </span>
           </td>
           <td>
-            <span class="badge bg-light text-dark border px-2 py-1">
+            <span class="fw-semibold small text-dark">
               {{ dept.totalTrips }} {{ dept.totalTrips === 1 ? 'Trip' : 'Trips' }}
             </span>
           </td>
-          <td class="fw-bold text-success">${{ dept.totalReimbursedSpend | number:'1.2-2' }}</td>
+          <td class="fw-bold text-success">₹{{ dept.totalReimbursedSpend | number:'1.2-2' }}</td>
         </tr>
         <tr *ngIf="departmentSpends.length === 0">
           <td colspan="3" class="text-center py-4 text-muted">

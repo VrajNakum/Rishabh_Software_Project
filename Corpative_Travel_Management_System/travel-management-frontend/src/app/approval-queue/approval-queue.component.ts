@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Role } from '../models/enums.model';
 import { TravelRequestResponseDto } from '../models/travel-request.model';
 import { CurrentUser, UserContextService } from '../services/user-context.service';
-import { getStatusIcon, formatStatusLabel } from '../shared/status-utils';
+import { getStatusIcon, formatStatusLabel, getDepartmentTextClass } from '../shared/status-utils';
 import { PaginationComponent } from '../shared/pagination/pagination.component';
 
 @Component({
@@ -34,6 +34,7 @@ export class ApprovalQueueComponent {
 
   getStatusIcon = getStatusIcon;
   formatStatusLabel = formatStatusLabel;
+  getDepartmentTextClass = getDepartmentTextClass;
 
   // Pagination - Approval Queue
   currentPage = 1;
@@ -47,7 +48,12 @@ export class ApprovalQueueComponent {
   get filteredRequests(): TravelRequestResponseDto[] {
     if (!this.currentUser) return [];
 
-    // Admin sees all corporate travel requests, or when ALL scope is selected
+    // Employees in User Portal strictly see ONLY requests created by themselves
+    if (this.isEmployee) {
+      return this.requests.filter(req => req.employeeId === this.currentUser?.id);
+    }
+
+    // Admin sees all corporate travel requests, or when reviewer selects ALL scope
     if (this.isAdmin || this.queueScope === 'ALL') {
       return this.requests;
     }
@@ -72,19 +78,7 @@ export class ApprovalQueueComponent {
       });
     }
 
-    // Employees in User System Portal:
-    // Show requests submitted by this employee so they can track their approval queue progress
-    if (this.currentUser.role === Role.EMPLOYEE || (this.currentUser.role as string) === 'EMPLOYEE') {
-      const myReqs = this.requests.filter(req => req.employeeId === this.currentUser?.id);
-      if (myReqs.length > 0) {
-        return myReqs;
-      }
-      // If employee has not submitted any request yet, show all corporate queue requests in view mode
-      // so details are never blank or missing
-      return this.requests;
-    }
-
-    return this.requests;
+    return this.requests.filter(req => req.employeeId === this.currentUser?.id);
   }
 
   get paginatedRequests(): TravelRequestResponseDto[] {
@@ -98,6 +92,10 @@ export class ApprovalQueueComponent {
 
   get isAdmin(): boolean {
     return this.currentUser?.role === Role.ADMIN || (this.currentUser?.role as string) === 'ADMIN';
+  }
+
+  get isEmployee(): boolean {
+    return this.currentUser?.role === Role.EMPLOYEE || (this.currentUser?.role as string) === 'EMPLOYEE';
   }
 
   getAssignedManagerName(req: TravelRequestResponseDto): string {

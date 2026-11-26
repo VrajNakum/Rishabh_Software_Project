@@ -183,6 +183,13 @@ describe('LoginComponent', () => {
 
     component.openForgotPassword();
     component.verifiedUser = mockUsers[0];
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const newPwdInput = compiled.querySelector('input[placeholder*="Enter new password"]') as HTMLInputElement;
+    expect(newPwdInput).toBeTruthy();
+    expect(newPwdInput.getAttribute('type')).toBe('password');
+    expect(newPwdInput.closest('.input-group')?.querySelector('button')).toBeNull();
 
     // Short password check
     component.newPassword = '123';

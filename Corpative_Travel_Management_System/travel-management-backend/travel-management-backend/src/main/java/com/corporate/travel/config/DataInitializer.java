@@ -17,9 +17,11 @@ import com.corporate.travel.repository.ApprovalAuditLogRepository;
 import com.corporate.travel.repository.DepartmentRepository;
 import com.corporate.travel.repository.ExpenseRepository;
 import com.corporate.travel.repository.ItinerarySegmentRepository;
+import com.corporate.travel.repository.NotificationRepository;
 import com.corporate.travel.repository.TravelPolicyRepository;
 import com.corporate.travel.repository.TravelRequestRepository;
 import com.corporate.travel.repository.UserRepository;
+import com.corporate.travel.service.AppNotificationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +43,8 @@ public class DataInitializer implements CommandLineRunner {
     private final ItinerarySegmentRepository itinerarySegmentRepository;
     private final ExpenseRepository expenseRepository;
     private final ApprovalAuditLogRepository approvalAuditLogRepository;
+    private final NotificationRepository notificationRepository;
+    private final AppNotificationService appNotificationService;
 
     @Override
     @Transactional
@@ -136,7 +140,7 @@ public class DataInitializer implements CommandLineRunner {
                             .build()
             );
 
-            // 3. Create Travel Policies
+            // 3. Create Travel Policies (only when database is empty so manual DB policy rows are preserved)
             travelPolicyRepository.save(
                     TravelPolicy.builder()
                             .department(engineering)
@@ -150,6 +154,17 @@ public class DataInitializer implements CommandLineRunner {
                             .department(sales)
                             .maxBudgetLimit(new BigDecimal("5000.00"))
                             .allowedTravelClass(TravelClass.BUSINESS)
+                            .build()
+            );
+
+            Department marketing = departmentRepository.save(
+                    Department.builder().name("Marketing").build()
+            );
+            travelPolicyRepository.save(
+                    TravelPolicy.builder()
+                            .department(marketing)
+                            .maxBudgetLimit(new BigDecimal("3500.00"))
+                            .allowedTravelClass(TravelClass.PREMIUM_ECONOMY)
                             .build()
             );
         }
@@ -277,7 +292,7 @@ public class DataInitializer implements CommandLineRunner {
                             .actionBy(financeMansukhlal)
                             .previousStatus(RequestStatus.PENDING_FINANCE)
                             .newStatus(RequestStatus.APPROVED)
-                            .comments("Budget verified within Engineering limit ($2000.00). Approved.")
+                            .comments("Budget verified within Engineering limit (₹2000.00). Approved.")
                             .build()
             );
 
@@ -348,6 +363,26 @@ public class DataInitializer implements CommandLineRunner {
 
             log.info("Operational travel requests, itinerary segments & expenses seeded successfully!");
         }
+
+        // Backfill persistent notifications for existing non-draft travel requests
+        travelRequestRepository.findAll().forEach(req -> {
+            if (req.getStatus() != RequestStatus.DRAFT && !notificationRepository.existsByRequestId(req.getId())) {
+                appNotificationService.notifyTravelRequestSubmitted(req);
+                if (req.getStatus() == RequestStatus.PENDING_FINANCE || req.getStatus() == RequestStatus.APPROVED) {
+                    User mgr = req.getEmployee() != null ? req.getEmployee().getManager() : null;
+                    if (mgr != null) {
+                        appNotificationService.notifyTravelRequestReviewed(req, mgr, true, "Manager approved");
+                    }
+                } else if (req.getStatus() == RequestStatus.REJECTED) {
+                    User actor = req.getEmployee() != null && req.getEmployee().getManager() != null
+                            ? req.getEmployee().getManager()
+                            : req.getEmployee();
+                    if (actor != null) {
+                        appNotificationService.notifyTravelRequestReviewed(req, actor, false, req.getPolicyViolationReason());
+                    }
+                }
+            }
+        });
 
         log.info("Data initialization check complete.");
     }

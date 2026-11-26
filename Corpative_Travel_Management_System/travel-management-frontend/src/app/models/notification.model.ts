@@ -1,4 +1,4 @@
-export type NotificationType = 'SUBMISSION' | 'APPROVAL' | 'REJECTION' | 'EXPENSE' | 'SYSTEM';
+export type NotificationType = 'SUBMISSION' | 'APPROVAL' | 'REJECTION' | 'EXPENSE' | 'POLICY_ALERT' | 'SYSTEM';
 
 export interface AppNotification {
   id: string;

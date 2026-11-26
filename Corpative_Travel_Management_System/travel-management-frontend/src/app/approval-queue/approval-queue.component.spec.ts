@@ -166,21 +166,56 @@ describe('ApprovalQueueComponent', () => {
     expect(viewSpy).toHaveBeenCalledWith(sampleRequest);
   });
 
-  it('should show employee their own requests in approval queue and allow viewing all via queueScope', () => {
-    component.currentUser = {
+  it('should strictly isolate employee view to show only their own requests and never all users requests', () => {
+    fixture.componentRef.setInput('currentUser', {
       id: 3, // Matches sampleRequest.employeeId: 3
       fullName: 'Charlie',
       email: 'charlie@company.com',
       role: Role.EMPLOYEE,
       departmentName: 'Engineering'
-    };
+    });
+    fixture.detectChanges();
 
-    // In ASSIGNED mode, employee sees their own request (id: 10)
+    // Employee sees ONLY their own request (id: 10) and NOT other users' requests
+    expect(component.filteredRequests.length).toBe(1);
+    expect(component.filteredRequests[0].id).toBe(10);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('All Queue Requests');
+
+    // Even if queueScope is set to ALL, employee still sees ONLY their own request
+    component.queueScope = 'ALL';
     expect(component.filteredRequests.length).toBe(1);
     expect(component.filteredRequests[0].id).toBe(10);
 
-    // Switching to ALL mode shows all requests
-    component.queueScope = 'ALL';
-    expect(component.filteredRequests.length).toBe(2);
+    // An employee with no submitted requests sees 0 requests (never falls back to other users' requests)
+    fixture.componentRef.setInput('currentUser', {
+      id: 77,
+      fullName: 'Employee1',
+      email: 'employee1@company.com',
+      role: Role.EMPLOYEE,
+      departmentName: 'Marketing'
+    });
+    fixture.detectChanges();
+
+    expect(component.filteredRequests.length).toBe(0);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('You have not submitted any travel requests yet.');
+  });
+
+  it('should hide Assigned Manager and Assigned Finance columns and reviewer names when logged in as EMPLOYEE', () => {
+    fixture.componentRef.setInput('currentUser', {
+      id: 3, // Matches sampleRequest.employeeId: 3
+      fullName: 'Charlie',
+      email: 'charlie@company.com',
+      role: Role.EMPLOYEE,
+      departmentName: 'Engineering'
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const text = compiled.textContent || '';
+    expect(text).not.toContain('Assigned Manager');
+    expect(text).not.toContain('Assigned Finance');
+    expect(text).not.toContain('Bob Miller');
+    expect(text).not.toContain('Carol Davis');
+    expect(text).toContain('Awaiting Manager');
   });
 });
