@@ -5,7 +5,9 @@ import com.corporate.travel.dto.NotificationDto;
 import com.corporate.travel.dto.TravelRequestCreateDto;
 import com.corporate.travel.dto.TravelRequestResponseDto;
 import com.corporate.travel.entity.User;
+import com.corporate.travel.enums.RequestStatus;
 import com.corporate.travel.enums.TravelClass;
+import com.corporate.travel.exception.InvalidStateTransitionException;
 import com.corporate.travel.repository.UserRepository;
 import com.corporate.travel.service.AppNotificationService;
 import com.corporate.travel.service.TravelRequestService;
@@ -148,6 +150,54 @@ class TravelManagementBackendApplicationTests {
 		assertTrue(empNotifs.stream().anyMatch(n -> reqId.equals(n.getRequestId()) && "REJECTION".equals(n.getType()) && n.getMessage().contains("Quarter budget frozen")));
 		assertTrue(appNotificationService.getForUser(manager.getId()).stream().anyMatch(n -> reqId.equals(n.getRequestId()) && "REJECTION".equals(n.getType())));
 		assertTrue(appNotificationService.getForUser(admin.getId()).stream().anyMatch(n -> reqId.equals(n.getRequestId()) && "REJECTION".equals(n.getType())));
+	}
+
+	@Test
+	@Transactional
+	void shouldBlockApprovalAndAllowRejectionWhenStartDateReachedOrCrossed() {
+		User employee = userRepository.findByEmail("vrajnakum@gmail.com").orElseThrow();
+		User manager = employee.getManager();
+
+		TravelRequestResponseDto sameDayRequest = travelRequestService.createTravelRequest(
+				TravelRequestCreateDto.builder()
+						.employeeId(employee.getId())
+						.destination("Ahmedabad, India")
+						.startDate(LocalDate.now())
+						.endDate(LocalDate.now().plusDays(2))
+						.purpose("Same-day cutoff check")
+						.estimatedBudget(new BigDecimal("1500.00"))
+						.travelClass(TravelClass.ECONOMY)
+						.draft(false)
+						.priorityRequest(true)
+						.build()
+		);
+		assertTrue(Boolean.TRUE.equals(sameDayRequest.getPriorityRequest()));
+
+		Long reqId = sameDayRequest.getId();
+		TravelRequestResponseDto toggledOff = travelRequestService.updatePriority(reqId, false);
+		assertFalse(Boolean.TRUE.equals(toggledOff.getPriorityRequest()));
+		TravelRequestResponseDto toggledOn = travelRequestService.updatePriority(reqId, true);
+		assertTrue(Boolean.TRUE.equals(toggledOn.getPriorityRequest()));
+
+		InvalidStateTransitionException ex = assertThrows(
+				InvalidStateTransitionException.class,
+				() -> travelRequestService.processApprovalAction(reqId, ApprovalActionDto.builder()
+						.reviewerUserId(manager.getId())
+						.action("APPROVE")
+						.comments("Late approval")
+						.build())
+		);
+		assertTrue(ex.getMessage().contains("before the starting date"));
+
+		TravelRequestResponseDto rejected = travelRequestService.processApprovalAction(reqId, ApprovalActionDto.builder()
+				.reviewerUserId(manager.getId())
+				.action("REJECT")
+				.comments("Start date crossed")
+				.build());
+		assertEquals(RequestStatus.REJECTED, rejected.getStatus());
+
+		TravelRequestResponseDto rejectedPriorityOff = travelRequestService.updatePriority(reqId, false);
+		assertFalse(Boolean.TRUE.equals(rejectedPriorityOff.getPriorityRequest()));
 	}
 
 }

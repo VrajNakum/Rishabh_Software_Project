@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Role } from '../models/enums.model';
 import { TravelRequestResponseDto } from '../models/travel-request.model';
 import { CurrentUser, UserContextService } from '../services/user-context.service';
-import { getStatusIcon, formatStatusLabel, getDepartmentTextClass } from '../shared/status-utils';
+import { getStatusIcon, formatStatusLabel, getDepartmentTextClass, isApprovalDeadlineCrossed, sortPriorityRequestsFirst } from '../shared/status-utils';
 import { PaginationComponent } from '../shared/pagination/pagination.component';
 
 @Component({
@@ -48,37 +48,33 @@ export class ApprovalQueueComponent {
   get filteredRequests(): TravelRequestResponseDto[] {
     if (!this.currentUser) return [];
 
+    let list: TravelRequestResponseDto[];
+
     // Employees in User Portal strictly see ONLY requests created by themselves
     if (this.isEmployee) {
-      return this.requests.filter(req => req.employeeId === this.currentUser?.id);
-    }
-
-    // Admin sees all corporate travel requests, or when reviewer selects ALL scope
-    if (this.isAdmin || this.queueScope === 'ALL') {
-      return this.requests;
-    }
-
-    if (this.queueScope === 'MY_REQUESTS') {
-      return this.requests.filter(req => req.employeeId === this.currentUser?.id);
-    }
-
-    // Assigned Manager sees ONLY requests submitted by their assigned reportees
-    if (this.currentUser.role === Role.MANAGER || (this.currentUser.role as string) === 'MANAGER') {
-      return this.requests.filter(req => {
+      list = this.requests.filter(req => req.employeeId === this.currentUser?.id);
+    } else if (this.isAdmin || this.queueScope === 'ALL') {
+      // Admin sees all corporate travel requests, or when reviewer selects ALL scope
+      list = this.requests;
+    } else if (this.queueScope === 'MY_REQUESTS') {
+      list = this.requests.filter(req => req.employeeId === this.currentUser?.id);
+    } else if (this.currentUser.role === Role.MANAGER || (this.currentUser.role as string) === 'MANAGER') {
+      // Assigned Manager sees ONLY requests submitted by their assigned reportees
+      list = this.requests.filter(req => {
         const mgr = this.userContext.getAssignedManagerForRequest(req);
         return mgr.id === this.currentUser?.id;
       });
-    }
-
-    // Assigned Finance sees ONLY requests routed to this Finance officer
-    if (this.currentUser.role === Role.FINANCE || (this.currentUser.role as string) === 'FINANCE') {
-      return this.requests.filter(req => {
+    } else if (this.currentUser.role === Role.FINANCE || (this.currentUser.role as string) === 'FINANCE') {
+      // Assigned Finance sees ONLY requests routed to this Finance officer
+      list = this.requests.filter(req => {
         const fin = this.userContext.getAssignedFinanceForRequest(req);
         return fin.id === this.currentUser?.id;
       });
+    } else {
+      list = this.requests.filter(req => req.employeeId === this.currentUser?.id);
     }
 
-    return this.requests.filter(req => req.employeeId === this.currentUser?.id);
+    return sortPriorityRequestsFirst(list);
   }
 
   get paginatedRequests(): TravelRequestResponseDto[] {
@@ -110,6 +106,10 @@ export class ApprovalQueueComponent {
 
   canApprove(req: TravelRequestResponseDto): boolean {
     return this.userContext.canUserApproveRequest(req, this.currentUser);
+  }
+
+  isStartDateCrossed(req: TravelRequestResponseDto): boolean {
+    return isApprovalDeadlineCrossed(req?.startDate);
   }
 
   onApprove(requestId: number): void {

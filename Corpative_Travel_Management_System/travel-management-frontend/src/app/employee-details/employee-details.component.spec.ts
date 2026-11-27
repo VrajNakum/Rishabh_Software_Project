@@ -66,20 +66,24 @@ describe('EmployeeDetailsComponent', () => {
 
     fixture = TestBed.createComponent(EmployeeDetailsComponent);
     component = fixture.componentInstance;
-    component.currentUser = sampleUsers[0]; // Manager
+    component.currentUser = sampleUsers[1]; // Finance (Carol Davis)
     fixture.detectChanges();
   });
 
-  it('should allow access for Manager, Finance, and Admin, and deny Employee', () => {
+  it('should allow access only for Finance and Admin, and deny Manager and Employee', () => {
     expect(component.canAccess).toBe(true);
-
-    fixture.componentRef.setInput('currentUser', { ...sampleUsers[0], role: Role.FINANCE });
-    fixture.detectChanges();
-    expect(component.canAccess).toBe(true);
+    expect(component.scopeFilter).toBe('ALL');
+    expect(component.scopedUsers.length).toBe(sampleUsers.length);
 
     fixture.componentRef.setInput('currentUser', { ...sampleUsers[0], role: Role.ADMIN });
     fixture.detectChanges();
     expect(component.canAccess).toBe(true);
+    expect(component.scopedUsers.length).toBe(sampleUsers.length);
+
+    fixture.componentRef.setInput('currentUser', sampleUsers[0]); // MANAGER
+    fixture.detectChanges();
+    expect(component.canAccess).toBe(false);
+    expect(component.scopedUsers.length).toBe(0);
 
     fixture.componentRef.setInput('currentUser', sampleUsers[2]); // EMPLOYEE
     fixture.detectChanges();
@@ -87,8 +91,10 @@ describe('EmployeeDetailsComponent', () => {
     expect(component.scopedUsers.length).toBe(0);
   });
 
-  it('should display employee details and bank status cleanly', () => {
+  it('should display all system user details and bank status cleanly by default for Finance and Admin', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(text).toContain('Bob Miller');
+    expect(text).toContain('Carol Davis');
     expect(text).toContain('Alice Johnson');
     expect(text).toContain('HDFC Bank');
     expect(text).toContain('HDFC0000123');
@@ -97,7 +103,7 @@ describe('EmployeeDetailsComponent', () => {
     expect(text).toContain('Required');
   });
 
-  it('should filter by Managers and Finance Officers for non-employee portals', () => {
+  it('should filter by Managers and Finance Officers for Finance and Admin portals', () => {
     expect(component.totalManagersCount).toBe(1);
     expect(component.totalFinanceCount).toBe(1);
 

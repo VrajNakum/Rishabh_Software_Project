@@ -25,6 +25,7 @@ import com.corporate.travel.repository.TravelPolicyRepository;
 import com.corporate.travel.repository.TravelRequestRepository;
 import com.corporate.travel.repository.UserRepository;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,6 +86,7 @@ public class TravelRequestServiceImpl implements TravelRequestService {
                 .status(initialStatus)
                 .policyViolated(policyResult.isViolated())
                 .policyViolationReason(policyResult.getReason())
+                .priorityRequest(dto.isPriorityRequest())
                 .build();
 
         TravelRequest saved = travelRequestRepository.save(travelRequest);
@@ -137,6 +139,7 @@ public class TravelRequestServiceImpl implements TravelRequestService {
         request.setStatus(newStatus);
         request.setPolicyViolated(policyResult.isViolated());
         request.setPolicyViolationReason(policyResult.getReason());
+        request.setPriorityRequest(dto.isPriorityRequest());
 
         TravelRequest updated = travelRequestRepository.save(request);
 
@@ -154,6 +157,17 @@ public class TravelRequestServiceImpl implements TravelRequestService {
             appNotificationService.notifyTravelRequestSubmitted(updated);
         }
 
+        return mapToDto(updated);
+    }
+
+    @Override
+    @Transactional
+    public TravelRequestResponseDto updatePriority(Long id, boolean priorityRequest) {
+        TravelRequest request = travelRequestRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Travel request not found with id: " + id));
+
+        request.setPriorityRequest(priorityRequest);
+        TravelRequest updated = travelRequestRepository.save(request);
         return mapToDto(updated);
     }
 
@@ -295,6 +309,11 @@ public class TravelRequestServiceImpl implements TravelRequestService {
                     String.format("Cannot %s request currently in status: %s", dto.getAction(), currentStatus));
         }
 
+        if (isApproval && request.getStartDate() != null && !LocalDate.now().isBefore(request.getStartDate())) {
+            throw new InvalidStateTransitionException(
+                    String.format("Request not accepted: Approval must be done before the starting date (%s). Starting date has crossed.", request.getStartDate()));
+        }
+
         // Apply Status Transition
         request.setStatus(nextStatus);
         if (isRejection) {
@@ -421,6 +440,7 @@ public class TravelRequestServiceImpl implements TravelRequestService {
                 .financeName(financeName)
                 .policyViolated(entity.getPolicyViolated())
                 .policyViolationReason(entity.getPolicyViolationReason())
+                .priorityRequest(Boolean.TRUE.equals(entity.getPriorityRequest()))
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

@@ -1,1 +1,13 @@
 /* My Requests and New Travel Component Styles */
+.priority-table-checkbox {
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 1.5px solid #475569;
+  cursor: pointer;
+}
+
+.priority-table-checkbox:disabled {
+  border-color: #94a3b8;
+  opacity: 0.65;
+  cursor: not-allowed;
+}

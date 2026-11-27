@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { TravelClass, Role } from '../models/enums.model';
 import { PredefinedTravelPolicyDto, TravelRequestCreateDto, TravelRequestResponseDto } from '../models/travel-request.model';
 import { CurrentUser } from '../services/user-context.service';
-import { getStatusIcon, formatStatusLabel, evaluateTravelPolicy, PolicyEvaluationResult, DEFAULT_PREDEFINED_POLICIES } from '../shared/status-utils';
+import { getStatusIcon, formatStatusLabel, evaluateTravelPolicy, PolicyEvaluationResult, DEFAULT_PREDEFINED_POLICIES, getTodayLocalIsoDate, isApprovalDeadlineCrossed, sortPriorityRequestsFirst } from '../shared/status-utils';
 import { PaginationComponent } from '../shared/pagination/pagination.component';
 
 @Component({
@@ -39,18 +39,12 @@ export class MyRequestsAndNewTravelComponent {
   @Output() viewTripDetails = new EventEmitter<TravelRequestResponseDto>();
   @Output() deleteRequest = new EventEmitter<TravelRequestResponseDto>();
   @Output() statusFilterChange = new EventEmitter<'ALL' | 'APPROVED' | 'PENDING' | 'DRAFT' | 'REJECTED'>();
+  @Output() togglePriority = new EventEmitter<{ request: TravelRequestResponseDto; priorityRequest: boolean }>();
 
   travelClasses = Object.values(TravelClass);
 
   getStatusIcon = getStatusIcon;
   formatStatusLabel = formatStatusLabel;
-
-  private formatLocalIsoDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
 
   private addDaysToIsoDate(isoDate: string, days: number): string {
     const parts = isoDate.split('-').map(Number);
@@ -58,11 +52,11 @@ export class MyRequestsAndNewTravelComponent {
       return isoDate;
     }
     const [year, month, day] = parts;
-    return this.formatLocalIsoDate(new Date(year, month - 1, day + days));
+    return getTodayLocalIsoDate(new Date(year, month - 1, day + days));
   }
 
   get todayIsoDate(): string {
-    return this.formatLocalIsoDate(new Date());
+    return getTodayLocalIsoDate();
   }
 
   get minStartDate(): string {
@@ -121,7 +115,7 @@ export class MyRequestsAndNewTravelComponent {
   }
 
   get filteredRequests(): TravelRequestResponseDto[] {
-    const list = this.myRequests;
+    const list = sortPriorityRequestsFirst(this.myRequests);
     if (this.statusFilter === 'ALL') {
       return list;
     }
@@ -192,6 +186,19 @@ export class MyRequestsAndNewTravelComponent {
 
   canDeleteRequest(status: string | null | undefined): boolean {
     return this.isAdmin;
+  }
+
+  isStartDateCrossed(req: TravelRequestResponseDto): boolean {
+    return isApprovalDeadlineCrossed(req?.startDate);
+  }
+
+  canTogglePriority(_req: TravelRequestResponseDto): boolean {
+    return true;
+  }
+
+  onPriorityCheckboxChange(req: TravelRequestResponseDto, event: Event): void {
+    const checked = Boolean((event.target as HTMLInputElement | null)?.checked);
+    this.togglePriority.emit({ request: req, priorityRequest: checked });
   }
 
   getDeleteTitle(status: string | null | undefined): string {

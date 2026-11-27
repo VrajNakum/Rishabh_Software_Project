@@ -11,6 +11,7 @@ import java.util.Map;
 public interface TravelRequestService {
     TravelRequestResponseDto createTravelRequest(TravelRequestCreateDto dto);
     TravelRequestResponseDto updateTravelRequest(Long id, TravelRequestCreateDto dto);
+    TravelRequestResponseDto updatePriority(Long id, boolean priorityRequest);
     void deleteTravelRequest(Long id);
     void deleteTravelRequest(Long id, Long userId);
     TravelRequestResponseDto getTravelRequestById(Long id);

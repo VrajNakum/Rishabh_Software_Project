@@ -93,7 +93,12 @@ describe('MyRequestsAndNewTravelComponent', () => {
     const loadSpy = vi.fn();
     component.loadDraft.subscribe(loadSpy);
 
-    component.onLoadDraft(sampleRequests[0]);
+    const draftButtons = (fixture.nativeElement as HTMLElement).querySelectorAll('button[aria-label="Edit draft request"]');
+    expect(draftButtons.length).toBe(1);
+    expect(draftButtons[0].textContent?.trim()).toBe('Draft');
+    expect(draftButtons[0].querySelector('i.bi-pencil-square')).toBeTruthy();
+
+    (draftButtons[0] as HTMLButtonElement).click();
     expect(loadSpy).toHaveBeenCalledWith(sampleRequests[0]);
   });
 
@@ -225,5 +230,183 @@ describe('MyRequestsAndNewTravelComponent', () => {
 
     expect(component.isStartDateInvalid).toBe(true);
     expect(component.isEndDateInvalid).toBe(true);
+  });
+
+  it('should display Not Accepted (Start Date Crossed) for pending requests when startDate has passed or reached today', () => {
+    component.requests = [{
+      id: 77,
+      employeeId: 2,
+      employeeName: 'Alice Johnson',
+      departmentName: 'Engineering',
+      destination: 'Jaipur, India',
+      startDate: component.todayIsoDate,
+      endDate: '2027-01-10',
+      purpose: 'Client meeting',
+      estimatedBudget: 1500,
+      travelClass: TravelClass.ECONOMY,
+      status: RequestStatus.PENDING_MANAGER,
+      policyViolated: false,
+      createdAt: '2026-11-20T10:00:00',
+      updatedAt: '2026-11-20T10:00:00'
+    }];
+    fixture.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Not Accepted (Start Date Crossed)');
+  });
+
+  it('should render Priority Request checkbox and sort priority requests first in Travel History & Status', () => {
+    const priorityCheckbox = (fixture.nativeElement as HTMLElement).querySelector('input[name="priorityRequest"]') as HTMLInputElement;
+    expect(priorityCheckbox).toBeTruthy();
+    expect(priorityCheckbox.type).toBe('checkbox');
+
+    const regularReq: TravelRequestResponseDto = {
+      id: 81,
+      employeeId: 2,
+      employeeName: 'Alice Johnson',
+      departmentName: 'Engineering',
+      destination: 'Regular Trip',
+      startDate: '2027-01-10',
+      endDate: '2027-01-12',
+      purpose: 'Standard visit',
+      estimatedBudget: 1000,
+      travelClass: TravelClass.ECONOMY,
+      status: RequestStatus.PENDING_MANAGER,
+      policyViolated: false,
+      priorityRequest: false,
+      createdAt: '2026-11-20T10:00:00',
+      updatedAt: '2026-11-20T10:00:00'
+    };
+    const urgentReq: TravelRequestResponseDto = {
+      ...regularReq,
+      id: 82,
+      destination: 'Urgent Priority Trip',
+      priorityRequest: true
+    };
+
+    component.requests = [regularReq, urgentReq];
+    fixture.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+
+    expect(component.filteredRequests.map(r => r.id)).toEqual([82, 81]);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Priority Request');
+  });
+
+  it('should not show Rejection Note or Violation Flag message boxes in Travel History & Status', () => {
+    component.requests = [
+      {
+        id: 91,
+        employeeId: 2,
+        employeeName: 'Alice Johnson',
+        departmentName: 'Engineering',
+        destination: 'Mumbai, India',
+        startDate: '2027-01-10',
+        endDate: '2027-01-12',
+        purpose: 'Client meeting',
+        estimatedBudget: 3000,
+        travelClass: TravelClass.BUSINESS,
+        status: RequestStatus.REJECTED,
+        policyViolated: true,
+        policyViolationReason: 'Rejected by MANAGER (Manager2): Clear the Budget',
+        createdAt: '2026-11-20T10:00:00',
+        updatedAt: '2026-11-20T10:00:00'
+      },
+      {
+        id: 92,
+        employeeId: 2,
+        employeeName: 'Alice Johnson',
+        departmentName: 'Engineering',
+        destination: 'Delhi, India',
+        startDate: '2027-01-15',
+        endDate: '2027-01-17',
+        purpose: 'Summit',
+        estimatedBudget: 3000,
+        travelClass: TravelClass.ECONOMY,
+        status: RequestStatus.PENDING_MANAGER,
+        policyViolated: true,
+        policyViolationReason: 'Estimated budget exceeds limit',
+        createdAt: '2026-11-20T10:00:00',
+        updatedAt: '2026-11-20T10:00:00'
+      }
+    ];
+    fixture.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(text).not.toContain('Rejection Note:');
+    expect(text).not.toContain('Violation Flag:');
+  });
+
+  it('should allow all users to tick Priority checkbox across Draft, Pending, and Finalized rows in Travel History & Status', () => {
+    const toggleSpy = vi.fn();
+    component.togglePriority.subscribe(toggleSpy);
+
+    component.requests = [
+      {
+        id: 95,
+        employeeId: 2,
+        employeeName: 'Alice Johnson',
+        departmentName: 'Engineering',
+        destination: 'Jaipur, India',
+        startDate: '2027-01-10',
+        endDate: '2027-01-12',
+        purpose: 'Client sync',
+        estimatedBudget: 1200,
+        travelClass: TravelClass.ECONOMY,
+        status: RequestStatus.PENDING_MANAGER,
+        policyViolated: false,
+        priorityRequest: false,
+        createdAt: '2026-11-20T10:00:00',
+        updatedAt: '2026-11-20T10:00:00'
+      },
+      {
+        id: 96,
+        employeeId: 2,
+        employeeName: 'Alice Johnson',
+        departmentName: 'Engineering',
+        destination: 'Pune, India',
+        startDate: '2027-01-20',
+        endDate: '2027-01-22',
+        purpose: 'Audit',
+        estimatedBudget: 1500,
+        travelClass: TravelClass.ECONOMY,
+        status: RequestStatus.APPROVED,
+        policyViolated: false,
+        priorityRequest: true,
+        createdAt: '2026-11-20T10:00:00',
+        updatedAt: '2026-11-20T10:00:00'
+      }
+    ];
+    fixture.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+
+    const pendingCb = (fixture.nativeElement as HTMLElement).querySelector('input[aria-label="Priority request for #95"]') as HTMLInputElement;
+    const approvedCb = (fixture.nativeElement as HTMLElement).querySelector('input[aria-label="Priority request for #96"]') as HTMLInputElement;
+    const actionEditBtn = (fixture.nativeElement as HTMLElement).querySelector('button[aria-label="Edit request #95"]');
+
+    expect(actionEditBtn).toBeNull();
+
+    expect(pendingCb).toBeTruthy();
+    expect(pendingCb.disabled).toBe(false);
+    expect(pendingCb.checked).toBe(false);
+
+    expect(approvedCb).toBeTruthy();
+    expect(approvedCb.disabled).toBe(false);
+    expect(approvedCb.checked).toBe(true);
+
+    pendingCb.checked = true;
+    pendingCb.dispatchEvent(new Event('change'));
+
+    expect(toggleSpy).toHaveBeenCalledWith(expect.objectContaining({
+      priorityRequest: true,
+      request: expect.objectContaining({ id: 95 })
+    }));
+
+    approvedCb.checked = false;
+    approvedCb.dispatchEvent(new Event('change'));
+    expect(toggleSpy).toHaveBeenCalledWith(expect.objectContaining({
+      priorityRequest: false,
+      request: expect.objectContaining({ id: 96 })
+    }));
   });
 });

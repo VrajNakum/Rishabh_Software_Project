@@ -38,6 +38,7 @@ public class TravelRequestResponseDto {
     private String financeName;
     private Boolean policyViolated;
     private String policyViolationReason;
+    private Boolean priorityRequest;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

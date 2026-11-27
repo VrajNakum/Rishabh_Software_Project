@@ -1,19 +1,6 @@
 <div class="rs-card p-4">
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <div>
-      <h5 class="fw-bold mb-0"><i class="bi bi-shield-lock me-1"></i> Approvals Queue</h5>
-      <small class="text-muted" *ngIf="currentUser">
-        Showing travel requests in the approval pipeline for <strong>{{ currentUser.fullName }}</strong> ({{ currentUser.role }})
-      </small>
-    </div>
-    <div class="d-flex align-items-center gap-3">
-      <span class="fw-semibold small text-primary">
-        User: {{ currentUser?.fullName }} ({{ currentUser?.role }})
-      </span>
-      <span class="fw-semibold small text-muted">
-        Showing: {{ filteredRequests.length }}<ng-container *ngIf="!isEmployee"> of {{ requests.length }}</ng-container>
-      </span>
-    </div>
+    <h5 class="fw-bold mb-0"><i class="bi bi-shield-lock me-1"></i> Approvals Queue</h5>
   </div>
 
   <!-- Scope Filter Pills -->
@@ -42,11 +29,6 @@
               (click)="queueScope = 'MY_REQUESTS'">
         <i class="bi bi-person-workspace me-1"></i> My Submitted Trips
       </button>
-    </div>
-
-    <div class="d-flex align-items-center gap-2 text-muted small">
-      <i class="bi bi-info-circle text-primary"></i>
-      <span>Filter: <strong>{{ isEmployee ? 'My Requests in Queue' : (queueScope === 'ALL' ? 'All Corporate Requests' : (queueScope === 'MY_REQUESTS' ? 'My Submitted Trips' : 'Assigned to Me')) }}</strong></span>
     </div>
   </div>
 
@@ -94,7 +76,13 @@
               {{ req.departmentName }}
             </span>
           </td>
-          <td>{{ req.destination }}</td>
+          <td>
+            <div>{{ req.destination }}</div>
+            <div *ngIf="req.priorityRequest" class="fw-semibold small text-danger">
+              Priority Request
+            </div>
+            <div class="text-muted small">{{ req.startDate }} to {{ req.endDate }}</div>
+          </td>
           <td><strong>₹{{ req.estimatedBudget | number:'1.2-2' }}</strong></td>
           <td *ngIf="!isEmployee">
             <strong class="small" [class.text-primary]="currentUser?.id === userContext.getAssignedManagerForRequest(req).id">
@@ -135,12 +123,18 @@
             </button>
           </td>
           <td>
-            <div class="d-flex gap-2" *ngIf="(req.status === 'PENDING_MANAGER' || req.status === 'PENDING_FINANCE') && canApprove(req)">
-              <button class="btn btn-sm btn-success" 
+            <div class="d-flex flex-wrap align-items-center gap-2" *ngIf="(req.status === 'PENDING_MANAGER' || req.status === 'PENDING_FINANCE') && canApprove(req)">
+              <button *ngIf="!isStartDateCrossed(req)"
+                      class="btn btn-sm btn-success" 
                       (click)="onApprove(req.id)"
                       title="Approve this travel request">
                 Approve
               </button>
+              <span *ngIf="isStartDateCrossed(req)"
+                    class="fw-semibold small text-danger"
+                    title="Request cannot be accepted because approval must be done before the starting date">
+                Not Accepted (Date Crossed)
+              </span>
               <button class="btn btn-sm btn-danger" 
                       (click)="onOpenReject(req)"
                       title="Reject with explanation comment for employee">
@@ -148,7 +142,10 @@
               </button>
             </div>
             <div *ngIf="(req.status === 'PENDING_MANAGER' || req.status === 'PENDING_FINANCE') && !canApprove(req)">
-              <span class="fw-semibold small text-warning-emphasis">
+              <span *ngIf="isStartDateCrossed(req)" class="fw-semibold small text-danger">
+                Not Accepted (Date Crossed)
+              </span>
+              <span *ngIf="!isStartDateCrossed(req)" class="fw-semibold small text-warning-emphasis">
                 {{ isEmployee ? (req.status === 'PENDING_MANAGER' ? 'Awaiting Manager' : 'Awaiting Finance') : (req.status === 'PENDING_MANAGER' ? 'Awaiting ' + getAssignedManagerName(req) : 'Awaiting ' + getAssignedFinanceName(req)) }}
               </span>
             </div>

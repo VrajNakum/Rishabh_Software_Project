@@ -11,6 +11,7 @@ export interface TravelRequestCreateDto {
   estimatedBudget: number;
   travelClass: TravelClass;
   draft: boolean;
+  priorityRequest?: boolean;
 }
 
 export interface TravelRequestResponseDto {
@@ -31,6 +32,7 @@ export interface TravelRequestResponseDto {
   financeName?: string | null;
   policyViolated: boolean;
   policyViolationReason?: string;
+  priorityRequest?: boolean;
   createdAt: string;
   updatedAt: string;
 }

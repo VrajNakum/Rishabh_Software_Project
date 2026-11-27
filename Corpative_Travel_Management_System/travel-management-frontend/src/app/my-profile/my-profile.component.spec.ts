@@ -196,12 +196,12 @@ describe('MyProfileComponent', () => {
     expect(editBtn).toBeTruthy();
   });
 
-  it('should hide Assigned Manager and Assigned Finance details when logged in as EMPLOYEE', () => {
+  it('should display Assigned Manager and Assigned Finance details for every user including EMPLOYEE', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent || '';
-    expect(text).not.toContain('Assigned Manager:');
-    expect(text).not.toContain('Assigned Finance:');
-    expect(text).not.toContain('Bob Miller');
-    expect(text).not.toContain('Carol Davis');
+    expect(text).toContain('Assigned Manager:');
+    expect(text).toContain('Assigned Finance:');
+    expect(text).toContain('Bob Miller');
+    expect(text).toContain('Carol Davis');
 
     fixture.componentRef.setInput('currentUser', {
       id: 1,
@@ -217,6 +217,7 @@ describe('MyProfileComponent', () => {
     const managerText = (fixture.nativeElement as HTMLElement).textContent || '';
     expect(managerText).toContain('Assigned Manager:');
     expect(managerText).toContain('Assigned Finance:');
+    expect(managerText).toContain('Dave Wilson');
     expect(managerText).toContain('Carol Davis');
   });
 });

@@ -37,6 +37,10 @@ export class TravelRequestService {
     return this.http.put<TravelRequestResponseDto>(`${this.baseUrl}/${id}`, dto);
   }
 
+  updatePriority(id: number, priorityRequest: boolean): Observable<TravelRequestResponseDto> {
+    return this.http.patch<TravelRequestResponseDto>(`${this.baseUrl}/${id}/priority`, { priorityRequest });
+  }
+
   deleteRequest(id: number, userId?: number): Observable<void> {
     const url = userId ? `${this.baseUrl}/${id}?userId=${userId}` : `${this.baseUrl}/${id}`;
     return this.http.delete<void>(url);

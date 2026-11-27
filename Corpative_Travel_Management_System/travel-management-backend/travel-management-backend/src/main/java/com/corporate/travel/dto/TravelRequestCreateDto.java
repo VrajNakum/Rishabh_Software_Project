@@ -54,4 +54,7 @@ public class TravelRequestCreateDto {
 
     // If true, request is saved as DRAFT; if false, it is submitted directly (PENDING_MANAGER)
     private boolean draft;
+
+    // Marks the travel request as urgent/priority to appear first in approval queues
+    private boolean priorityRequest;
 }

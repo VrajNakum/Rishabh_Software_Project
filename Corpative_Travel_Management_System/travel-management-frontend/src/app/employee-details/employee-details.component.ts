@@ -19,7 +19,7 @@ export class EmployeeDetailsComponent implements OnInit, OnDestroy {
 
   users: CurrentUser[] = [];
   searchTerm = '';
-  scopeFilter: 'EMPLOYEES' | 'MANAGERS' | 'FINANCE' | 'MY_TEAM' | 'ALL' = 'EMPLOYEES';
+  scopeFilter: 'ALL' | 'EMPLOYEES' | 'MANAGERS' | 'FINANCE' | 'MY_TEAM' = 'ALL';
   selectedEmployee: CurrentUser | null = null;
   isRefreshing = false;
 
@@ -47,13 +47,13 @@ export class EmployeeDetailsComponent implements OnInit, OnDestroy {
   get canAccess(): boolean {
     if (!this.currentUser) return false;
     const role = String(this.currentUser.role || '').toUpperCase();
-    return role === Role.MANAGER || role === Role.FINANCE || role === Role.ADMIN;
+    return role === Role.FINANCE || role === Role.ADMIN;
   }
 
-  get isManagerOrFinance(): boolean {
+  get isFinance(): boolean {
     if (!this.currentUser) return false;
     const role = String(this.currentUser.role || '').toUpperCase();
-    return role === Role.MANAGER || role === Role.FINANCE;
+    return role === Role.FINANCE;
   }
 
   get scopedUsers(): CurrentUser[] {

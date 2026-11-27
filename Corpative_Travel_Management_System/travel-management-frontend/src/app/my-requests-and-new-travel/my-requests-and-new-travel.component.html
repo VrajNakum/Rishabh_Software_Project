@@ -85,9 +85,22 @@
             <div>{{ livePolicyEvaluation.reason }}</div>
           </div>
         </div>
-        <div class="mb-4">
+        <div class="mb-3">
           <label class="form-label small fw-semibold">Purpose</label>
           <textarea class="form-control" rows="2" [(ngModel)]="newRequest.purpose" name="purpose" placeholder="Client technical workshop" required></textarea>
+        </div>
+        <div class="mb-4 form-check">
+          <input type="checkbox"
+                 class="form-check-input"
+                 id="priorityRequestCheckbox"
+                 [(ngModel)]="newRequest.priorityRequest"
+                 name="priorityRequest">
+          <label class="form-check-label small fw-semibold text-dark" for="priorityRequestCheckbox">
+            Priority Request
+          </label>
+          <div class="text-muted" style="font-size: 0.75rem;">
+            Mark as urgent so reviewers see this request first in the Approval Queue.
+          </div>
         </div>
         <div class="d-flex gap-2">
           <button type="submit" 
@@ -112,9 +125,6 @@
       <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
           <h5 class="fw-bold mb-0"><i class="bi bi-list-task me-1"></i> Travel History & Status</h5>
-          <small class="text-muted" *ngIf="currentUser">
-            Personal travel records for <strong>{{ currentUser.fullName }}</strong>
-          </small>
         </div>
         
         <!-- Quick Filter Chips for Clear Status Visibility -->
@@ -165,6 +175,7 @@
               <th>Dates</th>
               <th>Budget</th>
               <th>Status</th>
+              <th>Priority</th>
               <th>Policy</th>
               <th>Action</th>
             </tr>
@@ -174,34 +185,40 @@
               <td><strong>#{{ req.id }}</strong></td>
               <td>
                 <div>{{ req.destination }}</div>
-                <div *ngIf="req.status === 'REJECTED' && req.policyViolationReason" 
-                     class="text-danger small mt-1 p-1 bg-danger-subtle rounded border border-danger-subtle" 
-                     style="font-size: 0.75rem;">
-                  <i class="bi bi-chat-quote-fill me-1"></i>
-                  <strong>Rejection Note:</strong> {{ req.policyViolationReason }}
-                </div>
-                <div *ngIf="req.status !== 'REJECTED' && req.policyViolated && req.policyViolationReason"
-                     class="text-danger small mt-1 p-1 bg-warning-subtle rounded border border-warning-subtle"
-                     style="font-size: 0.75rem;">
-                  <i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>
-                  <strong>Violation Flag:</strong> {{ req.policyViolationReason }}
+                <div *ngIf="req.priorityRequest" class="fw-semibold small text-danger">
+                  Priority Request
                 </div>
               </td>
               <td class="small">{{ req.startDate }} to {{ req.endDate }}</td>
               <td>₹{{ req.estimatedBudget | number:'1.2-2' }}</td>
               <td>
-                <!-- Status Label (Clean Font & Color): If draft, clickable to load into input fields -->
+                <!-- Status Label (Clean Font & Color) with single clickable Draft + Edit icon button -->
                 <button *ngIf="req.status === 'DRAFT'"
-                        type="button" 
-                        class="status-badge badge-draft btn p-0 border-0 bg-transparent text-start"
+                        type="button"
+                        class="btn btn-sm btn-link p-0 border-0 bg-transparent text-decoration-none d-inline-flex align-items-center gap-1"
                         (click)="onLoadDraft(req)"
-                        title="Click to load draft details into form">
-                  Draft
-                  <i class="bi bi-pencil-fill ms-1 text-primary small"></i>
+                        aria-label="Edit draft request"
+                        title="Click to edit draft details">
+                  <span class="status-badge badge-draft">Draft</span>
+                  <i class="bi bi-pencil-square text-primary lh-1"></i>
                 </button>
                 <span *ngIf="req.status !== 'DRAFT'" class="status-badge" [ngClass]="'badge-' + req.status.toLowerCase().replace('_', '-')">
                   {{ formatStatusLabel(req.status) }}
                 </span>
+                <div *ngIf="(req.status === 'PENDING_MANAGER' || req.status === 'PENDING_FINANCE') && isStartDateCrossed(req)"
+                     class="fw-semibold small text-danger mt-1">
+                  Not Accepted (Start Date Crossed)
+                </div>
+              </td>
+              <td class="text-center">
+                <div class="form-check d-inline-flex align-items-center justify-content-center m-0">
+                  <input type="checkbox"
+                         class="form-check-input priority-table-checkbox m-0"
+                         [checked]="!!req.priorityRequest"
+                         (change)="onPriorityCheckboxChange(req, $event)"
+                         [attr.aria-label]="'Priority request for #' + req.id"
+                         title="Tick to mark Priority Request">
+                </div>
               </td>
               <td>
                 <span *ngIf="req.status === 'REJECTED'" class="fw-semibold small text-danger" title="{{ req.policyViolationReason }}">
@@ -231,7 +248,7 @@
               </td>
             </tr>
             <tr *ngIf="myRequests.length === 0">
-              <td colspan="7" class="text-center py-5 text-muted">
+              <td colspan="8" class="text-center py-5 text-muted">
                 <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
                 <div class="fw-semibold text-dark mb-1">No Travel Requests Found</div>
                 <div class="small">
@@ -242,7 +259,7 @@
               </td>
             </tr>
             <tr *ngIf="myRequests.length > 0 && filteredRequests.length === 0">
-              <td colspan="7" class="text-center py-4 text-muted">
+              <td colspan="8" class="text-center py-4 text-muted">
                 <i class="bi bi-funnel fs-3 d-block mb-2 text-warning"></i>
                 No personal requests found matching status <strong>"{{ formatStatusLabel(statusFilter) }}"</strong>.
                 <button class="btn btn-sm btn-link text-decoration-none ms-1" (click)="setStatusFilter('ALL')">Show all</button>

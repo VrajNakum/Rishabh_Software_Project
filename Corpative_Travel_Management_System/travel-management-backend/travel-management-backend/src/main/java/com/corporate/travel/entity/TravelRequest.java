@@ -83,6 +83,10 @@ public class TravelRequest {
     @Column(name = "policy_violation_reason", length = 500)
     private String policyViolationReason;
 
+    @Column(name = "priority_request", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private Boolean priorityRequest = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -96,10 +100,16 @@ public class TravelRequest {
         if (this.status == null) {
             this.status = RequestStatus.DRAFT;
         }
+        if (this.priorityRequest == null) {
+            this.priorityRequest = false;
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+        if (this.priorityRequest == null) {
+            this.priorityRequest = false;
+        }
     }
 }

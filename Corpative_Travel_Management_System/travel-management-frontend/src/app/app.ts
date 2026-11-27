@@ -10,7 +10,7 @@ import { TravelClass, ExpenseCategory, ReimbursementStatus, Role, RequestStatus,
 import { TravelRequestCreateDto, TravelRequestResponseDto, ApprovalAuditLogDto, PredefinedTravelPolicyDto } from './models/travel-request.model';
 import { ExpenseCreateDto, ExpenseResponseDto, ItinerarySegmentResponseDto, ItinerarySegmentRequestDto } from './models/itinerary-expense.model';
 import { CostSummaryReportDto, DepartmentSpendDto } from './models/reports.model';
-import { getStatusIcon, formatStatusLabel, evaluateTravelPolicy, DEFAULT_PREDEFINED_POLICIES } from './shared/status-utils';
+import { getStatusIcon, formatStatusLabel, evaluateTravelPolicy, DEFAULT_PREDEFINED_POLICIES, getTodayLocalIsoDate, isApprovalDeadlineCrossed } from './shared/status-utils';
 import { MyRequestsAndNewTravelComponent } from './my-requests-and-new-travel/my-requests-and-new-travel.component';
 import { ApprovalQueueComponent } from './approval-queue/approval-queue.component';
 import { TripDetailsComponent } from './trip-details/trip-details.component';
@@ -103,7 +103,8 @@ export class App implements OnInit, OnDestroy {
     purpose: '',
     estimatedBudget: 500,
     travelClass: TravelClass.ECONOMY,
-    draft: false
+    draft: false,
+    priorityRequest: false
   };
 
   // Review Model & Rejection Comment Modal
@@ -274,10 +275,10 @@ export class App implements OnInit, OnDestroy {
     return this.requests.filter(r => r.status === 'REJECTED').length;
   }
 
-  // Load a Draft from History directly into the Input form
+  // Load a Draft or Pending Approval request from History directly into the Input form
   loadDraftIntoForm(req: TravelRequestResponseDto): void {
-    if (req.status !== 'DRAFT') {
-      this.showAlert('Only unsubmitted drafts can be loaded into the form.', 'warning');
+    if (req.status === 'APPROVED' || req.status === 'REJECTED') {
+      this.showAlert('Finalized (Approved or Rejected) requests cannot be edited.', 'warning');
       return;
     }
 
@@ -290,10 +291,16 @@ export class App implements OnInit, OnDestroy {
       purpose: req.purpose,
       estimatedBudget: req.estimatedBudget,
       travelClass: req.travelClass,
-      draft: true
+      draft: req.status === 'DRAFT',
+      priorityRequest: Boolean(req.priorityRequest)
     };
     this.activeTab = 'requests';
-    this.showAlert(`Draft #${req.id} loaded into the input form. You can modify details and submit or save.`, 'info');
+    this.showAlert(
+      req.status === 'DRAFT'
+        ? `Draft #${req.id} loaded into the input form. You can modify details and submit or save.`
+        : `Request #${req.id} loaded into the input form. You can modify details and save changes.`,
+      'info'
+    );
   }
 
   // Cancel editing the current draft and reset form to a blank state
@@ -307,7 +314,8 @@ export class App implements OnInit, OnDestroy {
       purpose: '',
       estimatedBudget: 500,
       travelClass: TravelClass.ECONOMY,
-      draft: false
+      draft: false,
+      priorityRequest: false
     };
   }
 
@@ -328,7 +336,7 @@ export class App implements OnInit, OnDestroy {
   }
 
   get canViewEmployeeDetails(): boolean {
-    return this.isManager || this.isFinance || this.isAdmin;
+    return this.isFinance || this.isAdmin;
   }
 
   get canAddExpense(): boolean {
@@ -650,8 +658,7 @@ export class App implements OnInit, OnDestroy {
       return;
     }
 
-    const now = new Date();
-    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const todayIso = getTodayLocalIsoDate();
 
     if (!draftMode) {
       if (!this.newRequest.destination?.trim()) {
@@ -692,6 +699,8 @@ export class App implements OnInit, OnDestroy {
 
     const wasEditingDraft = this.editingDraftId !== null;
     const editingId = this.editingDraftId;
+    const existingEditingReq = wasEditingDraft ? this.requests.find(r => r.id === editingId) : undefined;
+    const wasDraftStatus = !existingEditingReq || existingEditingReq.status === RequestStatus.DRAFT;
     const employeeId = this.newRequest.employeeId || this.currentUser.id;
     const policyEval = evaluateTravelPolicy(
       this.newRequest.travelClass,
@@ -702,7 +711,9 @@ export class App implements OnInit, OnDestroy {
     // 1. Instantly display success or policy violation warning alert on button click!
     const baseMessage = draftMode
       ? (wasEditingDraft ? `Draft #${editingId} updated successfully!` : 'Draft saved successfully!')
-      : (wasEditingDraft ? `Draft #${editingId} submitted for approval successfully!` : 'Travel request submitted successfully!');
+      : (wasEditingDraft
+          ? (wasDraftStatus ? `Draft #${editingId} submitted for approval successfully!` : `Request #${editingId} updated successfully!`)
+          : 'Travel request submitted successfully!');
     if (policyEval.violated) {
       this.showAlert(`${baseMessage} Flagged Policy Violation: ${policyEval.reason}`, 'warning', false);
     } else {
@@ -718,11 +729,18 @@ export class App implements OnInit, OnDestroy {
       purpose: this.newRequest.purpose,
       estimatedBudget: this.newRequest.estimatedBudget,
       travelClass: this.newRequest.travelClass,
-      draft: draftMode
+      draft: draftMode,
+      priorityRequest: Boolean(this.newRequest.priorityRequest)
     };
 
     // 3. Immediately clear & reset form
     this.cancelEditDraft();
+
+    const resolvedStatus = draftMode
+      ? RequestStatus.DRAFT
+      : (existingEditingReq && existingEditingReq.status !== RequestStatus.DRAFT
+          ? existingEditingReq.status
+          : RequestStatus.PENDING_MANAGER);
 
     // 4. Optimistically update local requests array so it shows immediately in the table!
     const tempId = editingId ?? Date.now();
@@ -737,13 +755,14 @@ export class App implements OnInit, OnDestroy {
       purpose: payload.purpose,
       estimatedBudget: payload.estimatedBudget,
       travelClass: payload.travelClass,
-      status: draftMode ? RequestStatus.DRAFT : RequestStatus.PENDING_MANAGER,
+      status: resolvedStatus,
       managerId: this.currentUser.managerId ?? null,
       managerName: this.currentUser.managerName ?? null,
       financeId: this.currentUser.financeId ?? null,
       financeName: this.currentUser.financeName ?? null,
       policyViolated: policyEval.violated,
       policyViolationReason: policyEval.reason ?? undefined,
+      priorityRequest: Boolean(payload.priorityRequest),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -854,6 +873,15 @@ export class App implements OnInit, OnDestroy {
         ? (mgr.name ? `Manager ${mgr.name}` : 'their designated manager')
         : (fin.name ? `Finance Officer ${fin.name}` : 'their designated finance officer');
       this.showAlert(`Unauthorized action: Only ${expectedReviewer} or an Administrator is authorized to review Request #${requestId}.`, 'danger');
+      return;
+    }
+
+    if (action === 'APPROVE' && isApprovalDeadlineCrossed(target.startDate)) {
+      this.showAlert(
+        `Request #${requestId} not accepted: Approval must be completed before the starting date (${target.startDate}). The starting date has crossed.`,
+        'danger',
+        false
+      );
       return;
     }
 
@@ -1681,7 +1709,7 @@ export class App implements OnInit, OnDestroy {
       return;
     }
     if (tab === 'employee-details' && !this.canViewEmployeeDetails) {
-      this.showAlert('Unauthorized access: View Employee Details is restricted to Manager, Finance, and Admin personnel only.', 'danger');
+      this.showAlert('Unauthorized access: View Employee Details is restricted to Finance and Admin personnel only.', 'danger');
       return;
     }
     if (tab === 'trip-details' && !this.selectedRequest) {
@@ -1830,13 +1858,9 @@ export class App implements OnInit, OnDestroy {
     this.isLoggedIn = true;
     this.showSplash = false;
     this.showAlert(`Welcome back, ${user.fullName}! Logged in as ${user.role}.`, 'success');
-    if (user.role === Role.EMPLOYEE) {
-      this.activeTab = 'requests';
-    } else if (user.role === Role.MANAGER) {
+    if (user.role === Role.MANAGER || user.role === Role.FINANCE || user.role === Role.ADMIN) {
       this.activeTab = 'approvals';
-    } else if (user.role === Role.FINANCE) {
-      this.activeTab = 'reports';
-    } else if (user.role === Role.ADMIN) {
+    } else {
       this.activeTab = 'requests';
     }
     this.cdr.detectChanges();
@@ -1857,12 +1881,10 @@ export class App implements OnInit, OnDestroy {
     if (user) {
       this.userContext.loginWithUser(user);
       this.showAlert(`Switched active user to ${user.fullName} (${user.role}).`, 'info');
-      if (user.role === Role.EMPLOYEE) {
-        this.activeTab = 'requests';
-      } else if (user.role === Role.MANAGER) {
+      if (user.role === Role.MANAGER || user.role === Role.FINANCE || user.role === Role.ADMIN) {
         this.activeTab = 'approvals';
-      } else if (user.role === Role.FINANCE) {
-        this.activeTab = 'reports';
+      } else {
+        this.activeTab = 'requests';
       }
     }
   }
@@ -1890,7 +1912,8 @@ export class App implements OnInit, OnDestroy {
       purpose: target.purpose,
       estimatedBudget: event.newBudget,
       travelClass: target.travelClass,
-      draft: target.status === 'DRAFT'
+      draft: target.status === 'DRAFT',
+      priorityRequest: Boolean(target.priorityRequest)
     };
 
     this.travelRequestService.updateRequest(event.requestId, updatePayload).subscribe({
@@ -1903,6 +1926,77 @@ export class App implements OnInit, OnDestroy {
       error: (err) => {
         const errMsg = this.extractErrorMessage(err, `Failed to update budget for request #${event.requestId}`);
         this.showAlert(errMsg, 'danger', false);
+      }
+    });
+  }
+
+  onTogglePriority(event: { request: TravelRequestResponseDto; priorityRequest: boolean }): void {
+    const req = event.request;
+    if (!req) return;
+
+    const previousVal = Boolean(req.priorityRequest);
+    const updatedRequests = this.requests.map(r =>
+      r.id === req.id ? { ...r, priorityRequest: event.priorityRequest } : r
+    );
+    this.requests = updatedRequests;
+    if (this.selectedRequest && this.selectedRequest.id === req.id) {
+      this.selectedRequest = { ...this.selectedRequest, priorityRequest: event.priorityRequest };
+    }
+    this.showAlert(
+      event.priorityRequest
+        ? `Request #${req.id} marked as Priority Request.`
+        : `Priority removed from Request #${req.id}.`,
+      'success'
+    );
+    this.cdr.detectChanges();
+
+    this.travelRequestService.updatePriority?.(req.id, event.priorityRequest).subscribe({
+      next: (updated) => {
+        this.requests = this.requests.map(r => (r.id === updated.id ? updated : r));
+        if (this.selectedRequest && this.selectedRequest.id === updated.id) {
+          this.selectedRequest = updated;
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        const rawErrMsg = String(err?.error?.message || err?.message || '');
+        const isMissingEndpoint = err?.status === 404 || err?.status === 500 || rawErrMsg.includes('No static resource');
+        if (isMissingEndpoint) {
+          this.travelRequestService.updateRequest(req.id, {
+            employeeId: req.employeeId,
+            destination: req.destination,
+            startDate: req.startDate,
+            endDate: req.endDate,
+            purpose: req.purpose,
+            estimatedBudget: req.estimatedBudget,
+            travelClass: req.travelClass,
+            draft: req.status === RequestStatus.DRAFT,
+            priorityRequest: event.priorityRequest
+          }).subscribe({
+            next: (updated) => {
+              this.requests = this.requests.map(r => (r.id === updated.id ? updated : r));
+              if (this.selectedRequest && this.selectedRequest.id === updated.id) {
+                this.selectedRequest = updated;
+              }
+              this.cdr.detectChanges();
+            },
+            error: (fallbackErr) => {
+              this.requests = this.requests.map(r =>
+                r.id === req.id ? { ...r, priorityRequest: previousVal } : r
+              );
+              const fallbackMsg = this.extractErrorMessage(fallbackErr, `Failed to update priority for request #${req.id}`);
+              this.showAlert(fallbackMsg, 'danger', false);
+              this.cdr.detectChanges();
+            }
+          });
+          return;
+        }
+        this.requests = this.requests.map(r =>
+          r.id === req.id ? { ...r, priorityRequest: previousVal } : r
+        );
+        const errMsg = this.extractErrorMessage(err, `Failed to update priority for request #${req.id}`);
+        this.showAlert(errMsg, 'danger', false);
+        this.cdr.detectChanges();
       }
     });
   }

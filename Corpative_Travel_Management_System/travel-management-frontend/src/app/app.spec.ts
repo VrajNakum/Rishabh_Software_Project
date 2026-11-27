@@ -21,8 +21,8 @@ describe('App', () => {
     employeeName: 'Alice Johnson',
     departmentName: 'Engineering',
     destination: 'New York, NY',
-    startDate: '2026-11-10',
-    endDate: '2026-11-15',
+    startDate: '2027-01-10',
+    endDate: '2027-01-15',
     purpose: 'Tech Conference',
     estimatedBudget: 1500,
     travelClass: TravelClass.ECONOMY,
@@ -84,6 +84,7 @@ describe('App', () => {
       getAllRequests: vi.fn().mockImplementation(() => of([{ ...mockRequest, status: RequestStatus.PENDING_MANAGER }, { ...mockDraftRequest }])),
       createRequest: vi.fn().mockImplementation((payload: any) => of({ ...mockRequest, ...payload, id: 999 })),
       updateRequest: vi.fn().mockImplementation((id: number, payload: any) => of({ ...mockDraftRequest, ...payload, id, status: RequestStatus.PENDING_MANAGER })),
+      updatePriority: vi.fn().mockImplementation((id: number, priorityRequest: boolean) => of({ ...mockRequest, id, priorityRequest })),
       deleteRequest: vi.fn().mockReturnValue(of(undefined)),
       processApprovalAction: vi.fn().mockReturnValue(of({ ...mockRequest, status: RequestStatus.PENDING_FINANCE })),
       getAuditLogs: vi.fn().mockReturnValue(of([])),
@@ -407,6 +408,37 @@ describe('App', () => {
     // Button lock for request 101 must be cleanly unlocked
     expect(app.processingApprovalId[101]).toBeUndefined();
     expect(app.alertMessage).toContain('Cannot APPROVE request currently in status: REJECTED');
+  });
+
+  it('should block APPROVE when startDate has reached or crossed today while allowing REJECT', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    fixture.detectChanges();
+    app.currentUser = mockManagerUser;
+
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const expiredReq: TravelRequestResponseDto = {
+      ...mockRequest,
+      id: 199,
+      startDate: todayIso,
+      endDate: '2027-01-20',
+      status: RequestStatus.PENDING_MANAGER
+    };
+    app.requests = [expiredReq];
+
+    app.reviewRequest(199, 'APPROVE');
+    expect(travelRequestServiceMock.processApprovalAction).not.toHaveBeenCalled();
+    expect(app.alertType).toBe('danger');
+    expect(app.alertMessage).toContain('not accepted');
+    expect(app.alertMessage).toContain('starting date has crossed');
+
+    app.reviewRequest(199, 'REJECT', 'Start date already crossed');
+    expect(travelRequestServiceMock.processApprovalAction).toHaveBeenCalledWith(199, {
+      reviewerUserId: mockManagerUser.id,
+      action: 'REJECT',
+      comments: 'Start date already crossed'
+    });
   });
 
   it('should open rejection modal and require feedback comment for employee when rejecting request', () => {
@@ -843,6 +875,22 @@ describe('App', () => {
       expect(app.activeTab).toBe('approvals');
       expect(app.alertMessage).toContain('Welcome back, Bob Miller! Logged in as MANAGER.');
 
+      // On login success for Finance and Admin -> Approval Queue first
+      app.userContext.loginWithUser(mockFinanceUser);
+      app.onLoginSuccess(mockFinanceUser);
+      fixture.detectChanges();
+      expect(app.activeTab).toBe('approvals');
+
+      app.userContext.loginWithUser(mockAdminUser);
+      app.onLoginSuccess(mockAdminUser);
+      fixture.detectChanges();
+      expect(app.activeTab).toBe('approvals');
+
+      const navButtons = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('.corporate-nav-tabs .nav-link')
+      ).map(el => (el.textContent || '').trim());
+      expect(navButtons[0]).toContain('Approval Queue');
+
       // On logout
       const logoutSpy = vi.spyOn(app.userContext, 'logout');
       app.logout();
@@ -1154,29 +1202,36 @@ describe('App', () => {
       );
     });
 
-    it('should show View Employee Details nav tab before My Profile for Manager, Finance, and Admin only (not Employee)', async () => {
+    it('should show View Employee Details nav tab before My Profile for Finance and Admin only (not Manager or Employee)', async () => {
       const fixture = TestBed.createComponent(App);
       const app = fixture.componentInstance;
 
-      // 1. Employee should NOT see View Employee Details nav and cannot switch to it
-      app.userContext.loginWithUser({
-        id: 2,
-        fullName: 'Alice Johnson',
-        email: 'alice@company.com',
-        role: Role.EMPLOYEE,
-        departmentName: 'Engineering'
-      });
-      fixture.detectChanges();
-      await fixture.whenStable();
+      // 1. Employee and Manager should NOT see View Employee Details nav and cannot switch to it
+      for (const restrictedUser of [
+        {
+          id: 2,
+          fullName: 'Alice Johnson',
+          email: 'alice@company.com',
+          role: Role.EMPLOYEE,
+          departmentName: 'Engineering'
+        },
+        mockManagerUser
+      ]) {
+        app.clearAlert();
+        app.userContext.loginWithUser(restrictedUser);
+        fixture.detectChanges();
+        await fixture.whenStable();
 
-      expect(app.canViewEmployeeDetails).toBe(false);
-      expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('View Employee Details');
-      app.switchTab('employee-details');
-      expect(app.activeTab).not.toBe('employee-details');
-      expect(app.alertType).toBe('danger');
+        expect(app.canViewEmployeeDetails).toBe(false);
+        const navText = (fixture.nativeElement as HTMLElement).querySelector('.corporate-nav-tabs')?.textContent || '';
+        expect(navText).not.toContain('View Employee Details');
+        app.switchTab('employee-details');
+        expect(app.activeTab).not.toBe('employee-details');
+        expect(app.alertType).toBe('danger');
+      }
 
-      // 2. Manager, Finance, and Admin SHOULD see View Employee Details directly before My Profile
-      for (const reviewer of [mockManagerUser, mockFinanceUser, mockAdminUser]) {
+      // 2. Finance and Admin SHOULD see View Employee Details directly before My Profile
+      for (const reviewer of [mockFinanceUser, mockAdminUser]) {
         app.userContext.loginWithUser(reviewer);
         fixture.detectChanges();
         await fixture.whenStable();
@@ -1194,6 +1249,35 @@ describe('App', () => {
         app.switchTab('employee-details');
         expect(app.activeTab).toBe('employee-details');
       }
+    });
+
+    it('should update request priority via onTogglePriority for all request statuses with 404/500 fallback', () => {
+      const fixture = TestBed.createComponent(App);
+      const app = fixture.componentInstance;
+      fixture.detectChanges();
+
+      const pendingReq: TravelRequestResponseDto = { ...mockRequest, id: 101, priorityRequest: false, status: RequestStatus.PENDING_MANAGER };
+      const approvedReq: TravelRequestResponseDto = { ...mockRequest, id: 103, priorityRequest: false, status: RequestStatus.APPROVED };
+      app.requests = [pendingReq, approvedReq];
+
+      app.onTogglePriority({ request: pendingReq, priorityRequest: true });
+      expect(travelRequestServiceMock.updatePriority).toHaveBeenCalledWith(101, true);
+      expect(app.requests.find(r => r.id === 101)?.priorityRequest).toBe(true);
+      expect(app.alertType).toBe('success');
+
+      app.onTogglePriority({ request: approvedReq, priorityRequest: true });
+      expect(travelRequestServiceMock.updatePriority).toHaveBeenCalledWith(103, true);
+      expect(app.requests.find(r => r.id === 103)?.priorityRequest).toBe(true);
+
+      // Falls back to PUT updateRequest if older backend returns 500 "No static resource"
+      travelRequestServiceMock.updatePriority.mockReturnValueOnce(throwError(() => ({
+        status: 500,
+        error: { message: "No static resource api/travel-requests/101/priority for request '/api/travel-requests/101/priority'." }
+      })));
+      app.onTogglePriority({ request: pendingReq, priorityRequest: false });
+      expect(travelRequestServiceMock.updateRequest).toHaveBeenCalledWith(101, expect.objectContaining({
+        priorityRequest: false
+      }));
     });
   });
 });

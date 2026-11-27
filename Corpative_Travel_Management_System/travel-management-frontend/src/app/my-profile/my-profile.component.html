@@ -27,13 +27,13 @@
           <span class="text-muted">Corporate User ID:</span>
           <strong class="text-dark">#{{ currentUser.id }}</strong>
         </div>
-        <div class="d-flex justify-content-between py-1.5 border-bottom" *ngIf="currentUser.role !== Role.EMPLOYEE">
+        <div class="d-flex justify-content-between py-1.5 border-bottom">
           <span class="text-muted">Assigned Manager:</span>
           <span class="fw-semibold text-dark text-truncate ms-2" style="max-width: 150px;" [title]="currentUser.managerName || 'None'">
             {{ currentUser.managerName || 'None' }}
           </span>
         </div>
-        <div class="d-flex justify-content-between py-1.5 border-bottom" *ngIf="currentUser.role !== Role.EMPLOYEE">
+        <div class="d-flex justify-content-between py-1.5 border-bottom">
           <span class="text-muted">Assigned Finance:</span>
           <span class="fw-semibold text-success text-truncate ms-2" style="max-width: 150px;" [title]="currentUser.financeName || 'Carol Davis'">
             {{ currentUser.financeName || (currentUser.role === Role.FINANCE ? 'Self (Finance Officer)' : 'Carol Davis') }}
@@ -86,7 +86,6 @@
           <h5 class="fw-bold mb-0 text-dark">
             <i class="bi bi-person-lines-fill text-primary me-2"></i> Profile Details
           </h5>
-          <small class="text-muted">Update your corporate personal details, security credentials, and workflow preferences</small>
         </div>
         <div>
           <button *ngIf="!isEditing" 

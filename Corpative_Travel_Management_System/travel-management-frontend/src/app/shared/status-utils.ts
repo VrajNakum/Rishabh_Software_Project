@@ -1,6 +1,33 @@
 import { TravelClass } from '../models/enums.model';
 import { PredefinedTravelPolicyDto } from '../models/travel-request.model';
 
+export function getTodayLocalIsoDate(now: Date = new Date()): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function isApprovalDeadlineCrossed(
+  startDate: string | null | undefined,
+  todayIso: string = getTodayLocalIsoDate()
+): boolean {
+  if (!startDate || !startDate.trim()) {
+    return false;
+  }
+  const normalizedStart = startDate.trim().slice(0, 10);
+  return todayIso >= normalizedStart;
+}
+
+export function sortPriorityRequestsFirst<T extends { priorityRequest?: boolean }>(requests: T[]): T[] {
+  if (!Array.isArray(requests) || requests.length <= 1) {
+    return requests || [];
+  }
+  const priority = requests.filter(r => Boolean(r?.priorityRequest));
+  const normal = requests.filter(r => !r?.priorityRequest);
+  return [...priority, ...normal];
+}
+
 export function getStatusIcon(status: string | null | undefined): string {
   if (!status) return 'bi-info-circle-fill';
   switch (status) {

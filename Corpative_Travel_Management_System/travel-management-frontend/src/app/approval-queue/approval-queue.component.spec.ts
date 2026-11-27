@@ -218,4 +218,50 @@ describe('ApprovalQueueComponent', () => {
     expect(text).not.toContain('Carol Davis');
     expect(text).toContain('Awaiting Manager');
   });
+
+  it('should hide Approve button and show Not Accepted (Date Crossed) when startDate has reached or passed today', () => {
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const expiredRequest: TravelRequestResponseDto = {
+      ...sampleRequest,
+      id: 99,
+      startDate: todayIso,
+      endDate: '2027-01-05'
+    };
+
+    fixture.componentRef.setInput('currentUser', mockManagerUser);
+    fixture.componentRef.setInput('requests', [expiredRequest]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const approveBtn = Array.from(compiled.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Approve');
+    const rejectBtn = Array.from(compiled.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Reject');
+    expect(approveBtn).toBeUndefined();
+    expect(rejectBtn).toBeTruthy();
+    expect(compiled.textContent).toContain('Not Accepted (Date Crossed)');
+  });
+
+  it('should display Priority requests first at the top of the Approval Queue', () => {
+    const regularRequest: TravelRequestResponseDto = {
+      ...sampleRequest,
+      id: 101,
+      destination: 'Regular Destination',
+      startDate: '2027-01-10',
+      priorityRequest: false
+    };
+    const priorityRequest: TravelRequestResponseDto = {
+      ...sampleRequest,
+      id: 102,
+      destination: 'Urgent Client Escalation',
+      startDate: '2027-01-12',
+      priorityRequest: true
+    };
+
+    fixture.componentRef.setInput('currentUser', mockManagerUser);
+    fixture.componentRef.setInput('requests', [regularRequest, priorityRequest]);
+    fixture.detectChanges();
+
+    expect(component.filteredRequests.map(r => r.id)).toEqual([102, 101]);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Priority Request');
+  });
 });
