@@ -44,7 +44,6 @@ public class TravelRequestServiceImpl implements TravelRequestService {
     private final ExpenseRepository expenseRepository;
     private final AppNotificationService appNotificationService;
 
-    // Explicit constructor injection (SonarQube best practice)
     public TravelRequestServiceImpl(
             TravelRequestRepository travelRequestRepository,
             UserRepository userRepository,
@@ -254,7 +253,6 @@ public class TravelRequestServiceImpl implements TravelRequestService {
                 .toList();
     }
 
-    // --- Approval State Machine Implementation ---
     @Override
     @Transactional
     public TravelRequestResponseDto processApprovalAction(Long requestId, ApprovalActionDto dto) {
@@ -273,13 +271,10 @@ public class TravelRequestServiceImpl implements TravelRequestService {
             throw new IllegalArgumentException("Action must be either APPROVE or REJECT");
         }
 
-        // State Machine Validations
         if (currentStatus == RequestStatus.PENDING_MANAGER) {
-            // Verify Reviewer is a MANAGER or ADMIN
             if (reviewer.getRole() != Role.MANAGER && reviewer.getRole() != Role.ADMIN) {
                 throw new UnauthorizedActionException("Only a Manager or Admin can review requests in PENDING_MANAGER status");
             }
-            // Enforce Assigned Manager rule: only the assigned manager (or admin) can approve/reject
             if (reviewer.getRole() != Role.ADMIN && request.getEmployee() != null && request.getEmployee().getManager() != null) {
                 if (!request.getEmployee().getManager().getId().equals(reviewer.getId())) {
                     throw new UnauthorizedActionException(String.format(
@@ -290,11 +285,9 @@ public class TravelRequestServiceImpl implements TravelRequestService {
             nextStatus = isApproval ? RequestStatus.PENDING_FINANCE : RequestStatus.REJECTED;
 
         } else if (currentStatus == RequestStatus.PENDING_FINANCE) {
-            // Verify Reviewer is FINANCE or ADMIN
             if (reviewer.getRole() != Role.FINANCE && reviewer.getRole() != Role.ADMIN) {
                 throw new UnauthorizedActionException("Only a Finance officer or Admin can review requests in PENDING_FINANCE status");
             }
-            // Enforce Assigned Finance rule: only the assigned finance officer (or admin) can approve/reject
             if (reviewer.getRole() != Role.ADMIN && request.getEmployee() != null && request.getEmployee().getFinance() != null) {
                 if (!request.getEmployee().getFinance().getId().equals(reviewer.getId())) {
                     throw new UnauthorizedActionException(String.format(
@@ -309,12 +302,12 @@ public class TravelRequestServiceImpl implements TravelRequestService {
                     String.format("Cannot %s request currently in status: %s", dto.getAction(), currentStatus));
         }
 
+        // Business rule: approvals must occur strictly before travel starts; crossed-date requests may still be rejected.
         if (isApproval && request.getStartDate() != null && !LocalDate.now().isBefore(request.getStartDate())) {
             throw new InvalidStateTransitionException(
                     String.format("Request not accepted: Approval must be done before the starting date (%s). Starting date has crossed.", request.getStartDate()));
         }
 
-        // Apply Status Transition
         request.setStatus(nextStatus);
         if (isRejection) {
             String roleStr = reviewer.getRole() != null ? reviewer.getRole().name() : "REVIEWER";

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 import { CurrentUser } from './user-context.service';
 import { Role } from '../models/enums.model';
 
@@ -21,13 +22,43 @@ export interface UserCreatePayload {
   bankProofFileUrl?: string;
 }
 
+export interface AuthResponsePayload {
+  token: string;
+  tokenType: string;
+  expiresIn: number;
+  user: CurrentUser;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class UserService {
-  private readonly baseUrl = 'http://localhost:8080/api/users';
+  private readonly baseUrl = `${environment.apiBaseUrl}/users`;
+  private readonly authUrl = `${environment.apiBaseUrl}/auth`;
 
   constructor(private http: HttpClient) {}
+
+  login(identifier: string, password: string): Observable<AuthResponsePayload> {
+    return this.http.post<AuthResponsePayload>(`${this.authUrl}/login`, { identifier, password });
+  }
+
+  register(payload: { fullName: string; email: string; password: string; departmentName?: string }): Observable<AuthResponsePayload> {
+    return this.http.post<AuthResponsePayload>(`${this.authUrl}/register`, payload);
+  }
+
+  resetPassword(email: string, newPassword: string): Observable<AuthResponsePayload> {
+    return this.http.post<AuthResponsePayload>(`${this.authUrl}/reset-password`, { email, newPassword });
+  }
+
+  lookupAccount(email: string): Observable<CurrentUser> {
+    return this.http.get<CurrentUser>(`${this.authUrl}/account-lookup`, {
+      params: { email }
+    });
+  }
+
+  getAuthenticatedMe(): Observable<CurrentUser> {
+    return this.http.get<CurrentUser>(`${this.authUrl}/me`);
+  }
 
   getAllUsers(): Observable<CurrentUser[]> {
     return this.http.get<CurrentUser[]>(this.baseUrl);

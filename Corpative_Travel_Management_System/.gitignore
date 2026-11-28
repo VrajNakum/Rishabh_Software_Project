@@ -1,0 +1,26 @@
+# Environment configuration (never commit real secrets)
+.env
+.env.local
+
+# Maven & Java
+target/
+*.jar
+*.war
+*.class
+
+# Node & Angular
+node_modules/
+dist/
+.angular/
+tmp/
+out-tsc/
+
+# IDE & OS
+.idea/
+*.iml
+*.iws
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db

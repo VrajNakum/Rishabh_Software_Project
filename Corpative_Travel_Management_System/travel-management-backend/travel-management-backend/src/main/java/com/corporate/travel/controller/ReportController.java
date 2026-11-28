@@ -5,6 +5,7 @@ import com.corporate.travel.dto.DepartmentSpendDto;
 import com.corporate.travel.dto.EmployeeTravelHistoryDto;
 import com.corporate.travel.service.ReportService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,6 +15,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/reports")
+@PreAuthorize("isAuthenticated()")
 public class ReportController {
     private final ReportService reportService;
 
@@ -32,6 +34,7 @@ public class ReportController {
     }
 
     @GetMapping("/employee-history/{employeeId}")
+    @PreAuthorize("hasAnyRole('MANAGER', 'FINANCE', 'ADMIN') or #employeeId == authentication.principal.id")
     public ResponseEntity<EmployeeTravelHistoryDto> getEmployeeHistory(@PathVariable Long employeeId) {
         return ResponseEntity.ok(reportService.getEmployeeTravelHistory(employeeId));
     }

@@ -25,7 +25,9 @@ import com.corporate.travel.service.AppNotificationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -45,10 +47,22 @@ public class DataInitializer implements CommandLineRunner {
     private final ApprovalAuditLogRepository approvalAuditLogRepository;
     private final NotificationRepository notificationRepository;
     private final AppNotificationService appNotificationService;
+    private final PasswordEncoder passwordEncoder;
+
+    @Value("${app.seed.demo-data:false}")
+    private boolean seedDemoData;
+
+    @Value("${app.seed.default-password:ChangeMe@123}")
+    private String defaultSeedPassword;
 
     @Override
     @Transactional
     public void run(String... args) {
+        if (!seedDemoData) {
+            log.info("Demo seed initializer disabled (APP_SEED_DEMO_DATA=false).");
+            return;
+        }
+
         Department engineering;
         Department sales;
         Department financeDept;
@@ -57,19 +71,17 @@ public class DataInitializer implements CommandLineRunner {
         User employeeVrajNakum;
         User adminUser;
 
+        String encodedDefaultPassword = passwordEncoder.encode(defaultSeedPassword);
+
         if (departmentRepository.count() > 0) {
-            log.info("Database already seeded with departments. Verifying users...");
+            log.info("Existing departments found; ensuring seed accounts have BCrypt-hashed credentials.");
             userRepository.findAll().forEach(user -> {
-                if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
-                    if (user.getRole() == Role.MANAGER) {
-                        user.setPassword("Payaldee@123");
-                    } else if (user.getRole() == Role.FINANCE) {
-                        user.setPassword("Mansukhlal@123");
-                    } else if (user.getRole() == Role.ADMIN) {
-                        user.setPassword("Admin@123");
-                    } else {
-                        user.setPassword("Vrajnakum@123");
-                    }
+                String existingPwd = user.getPassword();
+                if (existingPwd == null || existingPwd.trim().isEmpty()) {
+                    user.setPassword(encodedDefaultPassword);
+                    userRepository.save(user);
+                } else if (!existingPwd.startsWith("$2a$") && !existingPwd.startsWith("$2b$") && !existingPwd.startsWith("$2y$")) {
+                    user.setPassword(passwordEncoder.encode(existingPwd));
                     userRepository.save(user);
                 }
             });
@@ -80,7 +92,6 @@ public class DataInitializer implements CommandLineRunner {
         } else {
             log.info("Seeding initial master data (departments, users, travel policies)...");
 
-            // 1. Create Departments
             engineering = departmentRepository.save(
                     Department.builder().name("Engineering").build()
             );
@@ -91,12 +102,11 @@ public class DataInitializer implements CommandLineRunner {
                     Department.builder().name("Finance").build()
             );
 
-            // 2. Create Users
             financeMansukhlal = userRepository.save(
                     User.builder()
                             .fullName("Mansukhlal")
                             .email("mansukhlal@gmail.com")
-                            .password("Mansukhlal@123")
+                            .password(encodedDefaultPassword)
                             .role(Role.FINANCE)
                             .department(financeDept)
                             .manager(null)
@@ -108,7 +118,7 @@ public class DataInitializer implements CommandLineRunner {
                     User.builder()
                             .fullName("Payal Dee")
                             .email("payaldee@gmail.com")
-                            .password("Payaldee@123")
+                            .password(encodedDefaultPassword)
                             .role(Role.MANAGER)
                             .department(engineering)
                             .manager(null)
@@ -120,7 +130,7 @@ public class DataInitializer implements CommandLineRunner {
                     User.builder()
                             .fullName("Vraj Nakum")
                             .email("vrajnakum@gmail.com")
-                            .password("Vrajnakum@123")
+                            .password(encodedDefaultPassword)
                             .role(Role.EMPLOYEE)
                             .department(engineering)
                             .manager(managerPayalDee)
@@ -132,7 +142,7 @@ public class DataInitializer implements CommandLineRunner {
                     User.builder()
                             .fullName("Admin")
                             .email("admin@gmail.com")
-                            .password("Admin@123")
+                            .password(encodedDefaultPassword)
                             .role(Role.ADMIN)
                             .department(financeDept)
                             .manager(null)

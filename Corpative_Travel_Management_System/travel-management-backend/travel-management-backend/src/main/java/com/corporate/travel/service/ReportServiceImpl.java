@@ -13,22 +13,18 @@ import com.corporate.travel.exception.ResourceNotFoundException;
 import com.corporate.travel.repository.ExpenseRepository;
 import com.corporate.travel.repository.TravelRequestRepository;
 import com.corporate.travel.repository.UserRepository;
-// CORRECT SPRING IMPORT
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.stereotype.Service;
-
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class ReportServiceImpl implements ReportService{
+public class ReportServiceImpl implements ReportService {
     private final TravelRequestRepository travelRequestRepository;
     private final ExpenseRepository expenseRepository;
     private final UserRepository userRepository;
 
-    // Explicit constructor injection (SonarQube best practice)
     public ReportServiceImpl(
             TravelRequestRepository travelRequestRepository,
             ExpenseRepository expenseRepository,

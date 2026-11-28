@@ -10,19 +10,12 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/travel-requests")
+@PreAuthorize("isAuthenticated()")
 public class TravelRequestController {
 
     private final TravelRequestService travelRequestService;
@@ -80,8 +73,8 @@ public class TravelRequestController {
         return ResponseEntity.ok(travelRequestService.getPredefinedPolicies());
     }
 
-    // Step 4: Approval Action (Approve / Reject)
     @PostMapping("/{id}/actions")
+    @PreAuthorize("hasAnyRole('MANAGER', 'FINANCE', 'ADMIN')")
     public ResponseEntity<TravelRequestResponseDto> processApprovalAction(
             @PathVariable Long id,
             @Valid @RequestBody ApprovalActionDto dto)
@@ -89,7 +82,6 @@ public class TravelRequestController {
         return ResponseEntity.ok(travelRequestService.processApprovalAction(id, dto));
     }
 
-    // Step 4: Retrieve Audit Logs for a Request
     @GetMapping("/{id}/audit-logs")
     public ResponseEntity<List<ApprovalAuditLogResponseDto>> getAuditLogs(@PathVariable Long id) {
         return ResponseEntity.ok(travelRequestService.getAuditLogsForRequest(id));

@@ -4,16 +4,14 @@ package com.corporate.travel.dto;
 import com.corporate.travel.enums.RequestStatus;
 import com.corporate.travel.enums.TravelClass;
 
-//import lombok.*;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Getter
 @Setter

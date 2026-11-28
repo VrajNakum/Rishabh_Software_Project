@@ -1,6 +1,7 @@
 package com.corporate.travel.dto;
 
 import com.corporate.travel.enums.Role;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -16,6 +17,7 @@ public class UserResponseDto {
     private Long id;
     private String fullName;
     private String email;
+    @JsonIgnore
     private String password;
     private Role role;
     private String departmentName;

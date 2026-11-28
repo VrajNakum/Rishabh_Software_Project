@@ -264,4 +264,35 @@ describe('UserContextService', () => {
     expect(service.unsyncedUsers.length).toBe(0);
     expect(service.findUserByEmail('offline.created@company.com')?.id).toBe(10);
   });
+
+  it('should authenticate via backend JWT, store token, reject 401 without bypass, and clear token on logout', async () => {
+    userServiceSpy.login = vi.fn().mockReturnValueOnce(of({
+      token: 'jwt-abc-123',
+      tokenType: 'Bearer',
+      expiresIn: 86400000,
+      user: {
+        id: 2,
+        fullName: 'Alice Johnson',
+        email: 'alice.employee@company.com',
+        role: Role.EMPLOYEE,
+        departmentName: 'Engineering'
+      }
+    }));
+
+    const success = await firstValueFrom(service.authenticate('alice.employee@company.com', 'Alice@Emp123'));
+    expect(success.success).toBe(true);
+    expect(service.authToken).toBe('jwt-abc-123');
+    expect(localStorage.getItem('tms_auth_token')).toBe('jwt-abc-123');
+
+    userServiceSpy.login.mockReturnValueOnce(
+      throwError(() => ({ status: 401, error: { message: 'Invalid credentials' } }))
+    );
+    const failed = await firstValueFrom(service.authenticate('alice.employee@company.com', 'WrongPass'));
+    expect(failed.success).toBe(false);
+    expect(failed.message).toBe('Invalid credentials');
+
+    service.logout();
+    expect(service.authToken).toBeNull();
+    expect(localStorage.getItem('tms_auth_token')).toBeNull();
+  });
 });

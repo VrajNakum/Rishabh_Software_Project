@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 import {
   ExpenseCreateDto,
   ExpenseResponseDto,
@@ -13,8 +14,8 @@ import { ReimbursementStatus } from '../models/enums.model';
   providedIn: 'root'
 })
 export class ItineraryExpenseService {
-  private readonly itineraryUrl = 'http://localhost:8080/api/itineraries';
-  private readonly expenseUrl = 'http://localhost:8080/api/expenses';
+  private readonly itineraryUrl = `${environment.apiBaseUrl}/itineraries`;
+  private readonly expenseUrl = `${environment.apiBaseUrl}/expenses`;
 
   constructor(private http: HttpClient) {}
 

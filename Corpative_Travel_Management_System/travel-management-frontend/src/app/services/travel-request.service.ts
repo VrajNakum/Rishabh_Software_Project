@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 import {
   ApprovalActionDto,
   ApprovalAuditLogDto,
@@ -13,7 +14,7 @@ import {
   providedIn: 'root'
 })
 export class TravelRequestService {
-  private readonly baseUrl = 'http://localhost:8080/api/travel-requests';
+  private readonly baseUrl = `${environment.apiBaseUrl}/travel-requests`;
 
   constructor(private http: HttpClient) {}
 

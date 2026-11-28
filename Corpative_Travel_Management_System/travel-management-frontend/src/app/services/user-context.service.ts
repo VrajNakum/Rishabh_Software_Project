@@ -1,7 +1,9 @@
 import { Injectable, Optional } from '@angular/core';
 import { BehaviorSubject, Observable, of, throwError, forkJoin, catchError, tap, map } from 'rxjs';
+import { environment } from '../../environments/environment';
 import { Role } from '../models/enums.model';
 import { UserService, UserCreatePayload } from './user.service';
+import { AUTH_TOKEN_STORAGE_KEY } from '../interceptors/auth.interceptor';
 
 export interface CurrentUser {
   id: number;
@@ -49,6 +51,7 @@ export class UserContextService {
   private readonly STORAGE_KEY = 'tms_logged_in_user_id';
   private readonly USERS_DB_STORAGE_KEY = 'tms_corporate_users_database';
   private readonly UNSYNCED_USERS_STORAGE_KEY = 'tms_unsynced_local_users';
+  private authTokenValue: string | null = null;
   private usersList: CurrentUser[] = [...DEFAULT_USERS];
 
   private usersSubject = new BehaviorSubject<CurrentUser[]>(this.usersList);
@@ -70,8 +73,38 @@ export class UserContextService {
   unsyncedUsers$ = this.unsyncedUsersSubject.asObservable();
 
   constructor(@Optional() private userService?: UserService) {
+    this.loadAuthTokenFromStorage();
     this.loadUsersFromStorage();
     this.initUsers();
+  }
+
+  private loadAuthTokenFromStorage(): void {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        this.authTokenValue = window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+      }
+    } catch {
+      this.authTokenValue = null;
+    }
+  }
+
+  get authToken(): string | null {
+    return this.authTokenValue;
+  }
+
+  setAuthToken(token: string | null): void {
+    this.authTokenValue = token;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        if (token) {
+          window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+        } else {
+          window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
   }
 
   private loadUsersFromStorage(): void {
@@ -135,7 +168,9 @@ export class UserContextService {
   }
 
   private initUsers(): void {
-    this.refreshUsers().subscribe();
+    if (this.authTokenValue) {
+      this.refreshUsers().subscribe();
+    }
   }
 
   get isBackendConnected(): boolean {
@@ -180,7 +215,7 @@ export class UserContextService {
       catchError(err => {
         this.backendConnectedSubject.next(false);
         this.backendSyncErrorSubject.next(
-          this.extractBackendErrorMessage(err, 'Unable to reach backend database at http://localhost:8080/api/users.')
+          this.extractBackendErrorMessage(err, `Unable to reach backend database at ${environment.apiBaseUrl}/users.`)
         );
         return of([]);
       })
@@ -190,7 +225,7 @@ export class UserContextService {
   private extractBackendErrorMessage(err: any, fallback: string): string {
     if (!err) return fallback;
     if (err.status === 0) {
-      return 'Backend server is unreachable (http://localhost:8080). Please ensure travel-management-backend and PostgreSQL are running.';
+      return `Backend server is unreachable (${environment.apiBaseUrl}). Ensure the API service and database are running.`;
     }
     if (err.error) {
       if (err.error.errors && typeof err.error.errors === 'object') {
@@ -232,6 +267,97 @@ export class UserContextService {
 
   get managers(): CurrentUser[] {
     return this.usersList.filter(u => u.role === Role.MANAGER);
+  }
+
+  authenticate(identifier: string, password: string): Observable<LoginResult> {
+    if (!identifier || !identifier.trim()) {
+      return of({ success: false, message: 'Please enter your corporate email address or username.' });
+    }
+    if (!password || !password.trim()) {
+      return of({ success: false, message: 'Password is required. Please enter your account password to sign in.' });
+    }
+
+    if (this.userService && typeof this.userService.login === 'function') {
+      return this.userService.login(identifier.trim(), password.trim()).pipe(
+        tap(res => {
+          this.setAuthToken(res.token);
+          this.backendConnectedSubject.next(true);
+          this.backendSyncErrorSubject.next(null);
+          if (res.user) {
+            this.addUserLocally(res.user);
+            this.loginWithUser(res.user);
+          }
+          this.refreshUsers().subscribe();
+        }),
+        map(res => ({ success: true, user: res.user })),
+        catchError(err => {
+          if (err?.status === 0) {
+            this.backendConnectedSubject.next(false);
+            return of(this.login(identifier, password));
+          }
+          return of({
+            success: false,
+            message: this.extractBackendErrorMessage(err, 'Invalid email/username or password.')
+          });
+        })
+      );
+    }
+
+    return of(this.login(identifier, password));
+  }
+
+  verifyEmailAsync(email: string): Observable<CurrentUser | null> {
+    const clean = email?.trim();
+    if (!clean) {
+      return of(null);
+    }
+    if (this.userService && typeof this.userService.lookupAccount === 'function') {
+      return this.userService.lookupAccount(clean).pipe(
+        tap(user => {
+          if (user) {
+            this.addUserLocally(user);
+          }
+        }),
+        catchError(err => {
+          if (err?.status === 0) {
+            return of(this.findUserByEmail(clean) ?? null);
+          }
+          return of(null);
+        })
+      );
+    }
+    return of(this.findUserByEmail(clean) ?? null);
+  }
+
+  resetPasswordAsync(email: string, newPassword: string): Observable<LoginResult> {
+    const pwd = newPassword?.trim() || '';
+    if (pwd.length < 4) {
+      return of({ success: false, message: 'New password must be at least 4 characters long.' });
+    }
+    if (this.userService && typeof this.userService.resetPassword === 'function') {
+      return this.userService.resetPassword(email.trim(), pwd).pipe(
+        tap(res => {
+          this.setAuthToken(res.token);
+          this.backendConnectedSubject.next(true);
+          if (res.user) {
+            this.addUserLocally(res.user);
+            this.loginWithUser(res.user);
+          }
+          this.refreshUsers().subscribe();
+        }),
+        map(res => ({ success: true, user: res.user })),
+        catchError(err => {
+          if (err?.status === 0) {
+            return of(this.resetPassword(email, pwd));
+          }
+          return of({
+            success: false,
+            message: this.extractBackendErrorMessage(err, 'Failed to reset password.')
+          });
+        })
+      );
+    }
+    return of(this.resetPassword(email, pwd));
   }
 
   login(identifier: string, password?: string): LoginResult {
@@ -404,6 +530,7 @@ export class UserContextService {
 
   logout(): void {
     this.isLoggedInSubject.next(false);
+    this.setAuthToken(null);
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.removeItem(this.STORAGE_KEY);
@@ -515,7 +642,9 @@ export class UserContextService {
           return localUpdated;
         }),
         catchError((err) => {
-          console.warn('Backend update failed, kept local assignments:', err);
+          this.backendSyncErrorSubject.next(
+            this.extractBackendErrorMessage(err, 'Backend unavailable; retained local manager/finance assignments.')
+          );
           return of(localUpdated);
         })
       );
@@ -549,7 +678,9 @@ export class UserContextService {
           return localUpdated;
         }),
         catchError((err) => {
-          console.warn('Backend role update failed, kept local role:', err);
+          this.backendSyncErrorSubject.next(
+            this.extractBackendErrorMessage(err, 'Backend unavailable; retained local role update.')
+          );
           return of(localUpdated);
         })
       );
@@ -645,7 +776,9 @@ export class UserContextService {
           return localUpdated;
         }),
         catchError((err) => {
-          console.warn('Backend user profile update failed or offline, kept local state:', err);
+          this.backendSyncErrorSubject.next(
+            this.extractBackendErrorMessage(err, 'Backend unavailable; retained local profile updates.')
+          );
           return of(localUpdated);
         })
       );

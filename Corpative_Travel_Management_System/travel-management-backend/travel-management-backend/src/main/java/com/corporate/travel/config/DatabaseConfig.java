@@ -16,44 +16,43 @@ import java.sql.DriverManager;
 @Slf4j
 public class DatabaseConfig {
 
-    @Value("${spring.datasource.url:jdbc:postgresql://localhost:5080/travel_management_db}")
+    @Value("${spring.datasource.url:jdbc:postgresql://localhost:5432/travel_management_db}")
     private String pgUrl;
 
     @Value("${spring.datasource.username:postgres}")
     private String pgUser;
 
-    @Value("${spring.datasource.password:vrajnakum}")
+    @Value("${spring.datasource.password:}")
     private String pgPassword;
 
     @Bean
     @Primary
     public DataSource dataSource() {
         if (pgUrl != null && pgUrl.startsWith("jdbc:h2:")) {
-            log.info("H2 JDBC URL detected ({}). Initializing H2 DataSource for testing or in-memory mode.", pgUrl);
+            log.info("Initializing H2 DataSource from configured JDBC URL.");
             HikariConfig h2Config = new HikariConfig();
             h2Config.setJdbcUrl(pgUrl);
             h2Config.setDriverClassName("org.h2.Driver");
-            h2Config.setUsername(pgUser != null && !pgUser.equals("postgres") ? pgUser : "sa");
-            h2Config.setPassword(pgPassword != null && !pgPassword.equals("vrajnakum") ? pgPassword : "");
+            h2Config.setUsername(pgUser != null && !pgUser.isBlank() ? pgUser : "sa");
+            h2Config.setPassword(pgPassword != null ? pgPassword : "");
             h2Config.setMaximumPoolSize(10);
             h2Config.setMinimumIdle(2);
             h2Config.setPoolName("HikariPool-H2");
             return new HikariDataSource(h2Config);
         }
 
-        log.info("Testing connection to PostgreSQL database at: {}", pgUrl);
+        log.info("Checking PostgreSQL connectivity at {}", pgUrl);
         boolean pgAvailable = false;
         try {
             DriverManager.setLoginTimeout(2);
             try (Connection conn = DriverManager.getConnection(pgUrl, pgUser, pgPassword)) {
                 if (conn != null && !conn.isClosed()) {
                     pgAvailable = true;
-                    log.info("Successfully connected to PostgreSQL database (travel_management_db)!");
+                    log.info("Connected to PostgreSQL database.");
                 }
             }
         } catch (Exception e) {
-            log.warn("PostgreSQL is currently not reachable ({}: {}). Seamlessly falling back to embedded H2 database to ensure all features and endpoints remain fully operational.",
-                    pgUrl, e.getMessage());
+            log.warn("PostgreSQL unreachable ({}). Falling back to embedded H2 in-memory database.", e.getMessage());
         }
 
         if (pgAvailable) {

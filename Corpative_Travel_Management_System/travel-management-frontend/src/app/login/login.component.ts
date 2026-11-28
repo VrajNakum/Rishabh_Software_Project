@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output, OnInit } from '@angular/core';
+import { Component, EventEmitter, Output, OnInit, Optional, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UserContextService, CurrentUser } from '../services/user-context.service';
@@ -36,7 +36,10 @@ export class LoginComponent implements OnInit {
   demoUsers: CurrentUser[] = [];
   getRoleTextClass = getRoleTextClass;
 
-  constructor(public userContext: UserContextService) {}
+  constructor(
+    public userContext: UserContextService,
+    @Optional() private cdr?: ChangeDetectorRef
+  ) {}
 
   ngOnInit(): void {
     this.demoUsers = this.userContext.availableUsers.slice(0, 4);
@@ -60,6 +63,26 @@ export class LoginComponent implements OnInit {
 
     this.isSubmitting = true;
     this.errorMessage = null;
+
+    if (typeof (this.userContext as any).authenticate === 'function') {
+      this.userContext.authenticate(this.emailOrUsername, this.password).subscribe({
+        next: (res) => {
+          this.isSubmitting = false;
+          if (res.success && res.user) {
+            this.loginSuccess.emit(res.user);
+          } else {
+            this.errorMessage = res.message || 'Invalid credentials. Please verify your email or password.';
+          }
+          this.cdr?.markForCheck();
+        },
+        error: () => {
+          this.isSubmitting = false;
+          this.errorMessage = 'Invalid credentials. Please verify your email or password.';
+          this.cdr?.markForCheck();
+        }
+      });
+      return;
+    }
 
     const res = this.userContext.login(this.emailOrUsername, this.password);
     this.isSubmitting = false;
@@ -114,6 +137,21 @@ export class LoginComponent implements OnInit {
     this.forgotPasswordErrorMessage = null;
     this.forgotPasswordSuccessMessage = null;
 
+    if (typeof (this.userContext as any).verifyEmailAsync === 'function') {
+      this.userContext.verifyEmailAsync(email).subscribe(user => {
+        this.isVerifyingEmail = false;
+        if (!user) {
+          this.forgotPasswordErrorMessage = `No corporate account found matching '${email}'. Please verify your email or contact your administrator.`;
+          this.verifiedUser = null;
+        } else {
+          this.verifiedUser = user;
+          this.forgotPasswordSuccessMessage = `Account verified for ${user.fullName} (${user.role}). You can set a new password to sign in.`;
+        }
+        this.cdr?.markForCheck();
+      });
+      return;
+    }
+
     const user = this.userContext.findUserByEmail(email);
     this.isVerifyingEmail = false;
     if (!user) {
@@ -153,6 +191,19 @@ export class LoginComponent implements OnInit {
 
     this.isResettingPassword = true;
     this.forgotPasswordErrorMessage = null;
+
+    if (typeof (this.userContext as any).resetPasswordAsync === 'function') {
+      this.userContext.resetPasswordAsync(this.verifiedUser!.email, pwd).subscribe(res => {
+        this.isResettingPassword = false;
+        if (res.success && res.user) {
+          this.loginSuccess.emit(res.user);
+        } else {
+          this.forgotPasswordErrorMessage = res.message || 'Failed to update password.';
+        }
+        this.cdr?.markForCheck();
+      });
+      return;
+    }
 
     const res = this.userContext.resetPassword(this.verifiedUser!.email, pwd);
     this.isResettingPassword = false;

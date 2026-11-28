@@ -400,6 +400,7 @@ describe('App', () => {
 
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
+    app.userContext.loginWithUser(mockManagerUser);
     fixture.detectChanges();
     app.currentUser = mockManagerUser;
 
@@ -413,6 +414,7 @@ describe('App', () => {
   it('should block APPROVE when startDate has reached or crossed today while allowing REJECT', () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
+    app.userContext.loginWithUser(mockManagerUser);
     fixture.detectChanges();
     app.currentUser = mockManagerUser;
 
@@ -444,6 +446,7 @@ describe('App', () => {
   it('should open rejection modal and require feedback comment for employee when rejecting request', () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
+    app.userContext.loginWithUser(mockManagerUser);
     fixture.detectChanges();
     app.currentUser = mockManagerUser;
 

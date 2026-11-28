@@ -11,6 +11,7 @@ import com.corporate.travel.repository.DepartmentRepository;
 import com.corporate.travel.repository.UserRepository;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,10 +20,15 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(UserRepository userRepository, DepartmentRepository departmentRepository) {
+    public UserServiceImpl(
+            UserRepository userRepository,
+            DepartmentRepository departmentRepository,
+            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.departmentRepository = departmentRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -48,10 +54,13 @@ public class UserServiceImpl implements UserService {
                     .orElseThrow(() -> new ResourceNotFoundException("Finance officer not found with id: " + dto.getFinanceId()));
         }
 
+        String rawPassword = dto.getPassword() != null ? dto.getPassword().trim() : "";
+        String encodedPassword = rawPassword.isEmpty() ? "" : encodeIfNeeded(rawPassword);
+
         User user = User.builder()
                 .fullName(dto.getFullName().trim())
                 .email(dto.getEmail().trim().toLowerCase())
-                .password(dto.getPassword() != null ? dto.getPassword().trim() : "")
+                .password(encodedPassword)
                 .role(dto.getRole())
                 .department(department)
                 .manager(manager)
@@ -90,7 +99,7 @@ public class UserServiceImpl implements UserService {
         }
 
         if (dto.getPassword() != null && !dto.getPassword().trim().isEmpty()) {
-            user.setPassword(dto.getPassword().trim());
+            user.setPassword(encodeIfNeeded(dto.getPassword().trim()));
         }
 
         if (dto.getRole() != null) {
@@ -186,7 +195,6 @@ public class UserServiceImpl implements UserService {
                 .id(user.getId())
                 .fullName(user.getFullName())
                 .email(user.getEmail())
-                .password(user.getPassword())
                 .role(user.getRole())
                 .departmentName(user.getDepartment() != null ? user.getDepartment().getName() : null)
                 .departmentId(user.getDepartment() != null ? user.getDepartment().getId() : null)
@@ -202,5 +210,12 @@ public class UserServiceImpl implements UserService {
                 .bankProofFileName(user.getBankProofFileName())
                 .bankProofFileUrl(user.getBankProofFileUrl())
                 .build();
+    }
+
+    private String encodeIfNeeded(String rawOrEncoded) {
+        if (rawOrEncoded.startsWith("$2a$") || rawOrEncoded.startsWith("$2b$") || rawOrEncoded.startsWith("$2y$")) {
+            return rawOrEncoded;
+        }
+        return passwordEncoder.encode(rawOrEncoded);
     }
 }

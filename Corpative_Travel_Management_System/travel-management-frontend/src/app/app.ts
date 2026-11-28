@@ -39,8 +39,7 @@ import { AppNotification } from './models/notification.model';
     NotificationCenterComponent,
     EmployeeDetailsComponent
   ],
-  templateUrl: './app.html',
-  styleUrl: './app.css'
+  templateUrl: './app.html'
 })
 export class App implements OnInit, OnDestroy {
   activeTab: 'requests' | 'approvals' | 'trip-details' | 'reports' | 'notifications' | 'employee-details' | 'admin' | 'profile' = 'requests';
@@ -173,7 +172,11 @@ export class App implements OnInit, OnDestroy {
     });
 
     this.userContext.isLoggedIn$.subscribe(loggedIn => {
+      const wasLoggedIn = this.isLoggedIn;
       this.isLoggedIn = loggedIn;
+      if (loggedIn && !wasLoggedIn) {
+        this.loadData();
+      }
     });
 
     this.userContext.users$.subscribe(users => {
@@ -194,7 +197,9 @@ export class App implements OnInit, OnDestroy {
       if (!this.canViewEmployeeDetails && this.activeTab === 'employee-details') {
         this.activeTab = 'requests';
       }
-      this.loadData();
+      if (this.isLoggedIn) {
+        this.loadData();
+      }
     });
 
     this.notificationService.notifications$?.pipe(skip(1)).subscribe(() => {
@@ -539,7 +544,6 @@ export class App implements OnInit, OnDestroy {
       error: (err) => {
         this.isLoadingData = false;
         this.backendError = this.extractErrorMessage(err, 'Failed to load travel requests');
-        console.error('Failed to load travel requests', err);
         if (!this.requests || this.requests.length === 0) {
           this.requests = this.getDefaultInitialRequests();
         }
@@ -555,10 +559,7 @@ export class App implements OnInit, OnDestroy {
           this.recalculateReports();
         }
       },
-      error: (err) => {
-        console.error('Failed to load cost summary', err);
-        this.recalculateReports();
-      }
+      error: () => this.recalculateReports()
     });
 
     this.reportService.getDepartmentSpend().subscribe({
@@ -569,10 +570,7 @@ export class App implements OnInit, OnDestroy {
           this.recalculateDepartmentSpends();
         }
       },
-      error: (err) => {
-        console.error('Failed to load department spend', err);
-        this.recalculateDepartmentSpends();
-      }
+      error: () => this.recalculateDepartmentSpends()
     });
   }
 
@@ -1191,14 +1189,14 @@ export class App implements OnInit, OnDestroy {
     const localExps = this.loadStoredExpenses(req.id);
     this.expenses = localExps || [];
 
-    // 2. Fetch server-side audit logs, segments, and expenses for this specific request ID
+    // Fetch server-side audit logs, segments, and expenses for the selected trip
     this.travelRequestService.getAuditLogs(req.id).subscribe({
       next: (logs) => this.auditLogs = logs,
-      error: (err) => console.error('Failed to load audit logs', err)
+      error: () => this.auditLogs = []
     });
     this.itineraryExpenseService.getSegments(req.id).subscribe({
       next: (segs) => this.segments = segs,
-      error: (err) => console.error('Failed to load itinerary segments', err)
+      error: () => this.segments = []
     });
     this.itineraryExpenseService.getExpenses(req.id).subscribe({
       next: (serverExps) => {
@@ -1219,14 +1217,15 @@ export class App implements OnInit, OnDestroy {
           this.recalculateReports();
           this.cdr.detectChanges();
         } else {
-          // If server returned 0 expenses, check if there are any unpersisted local expenses that can be synced to database
           const localList = this.loadStoredExpenses(req.id);
           if (localList && localList.length > 0 && req.status === 'APPROVED') {
             this.syncUnpersistedExpensesToServer(req.id, localList);
           }
         }
       },
-      error: (err) => console.error('Failed to load server expenses', err)
+      error: () => {
+        // Offline / local cache fallback already loaded above
+      }
     });
   }
 
@@ -1266,7 +1265,9 @@ export class App implements OnInit, OnDestroy {
             }
           }
         },
-        error: (err) => console.error('Failed to sync expense to database', err)
+        error: (err) => {
+          this.backendError = this.extractErrorMessage(err, `Failed to sync expense for trip #${requestId}`);
+        }
       });
     });
   }
@@ -1396,7 +1397,10 @@ export class App implements OnInit, OnDestroy {
         }
       },
       error: (err) => {
-        console.error('Failed to save expense claim to database', err);
+        this.showAlert(
+          this.extractErrorMessage(err, 'Expense claim saved locally; backend sync failed.'),
+          'warning'
+        );
       }
     });
   }
@@ -1855,6 +1859,7 @@ export class App implements OnInit, OnDestroy {
   }
 
   onLoginSuccess(user: CurrentUser): void {
+    const wasLoggedIn = this.isLoggedIn;
     this.isLoggedIn = true;
     this.showSplash = false;
     this.showAlert(`Welcome back, ${user.fullName}! Logged in as ${user.role}.`, 'success');
@@ -1862,6 +1867,9 @@ export class App implements OnInit, OnDestroy {
       this.activeTab = 'approvals';
     } else {
       this.activeTab = 'requests';
+    }
+    if (!wasLoggedIn) {
+      this.loadData();
     }
     this.cdr.detectChanges();
   }

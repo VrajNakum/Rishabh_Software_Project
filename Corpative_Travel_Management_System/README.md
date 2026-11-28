@@ -1,87 +1,61 @@
-# Corporate Travel Management System (TMS)
+# Corporate Travel Management System
 
-Enterprise Corporate Travel Management Desk application built with **Spring Boot** (Java 21/25) and **Angular** (v22).
+Role-based corporate travel request, multi-stage approval, itinerary tracking, expense reimbursement, and spend reporting system.
 
----
+## Tech Stack
 
-## 🚀 Quick Start (Actionable Steps)
+- **Backend**: Java 21+, Spring Boot 4.1.2, Spring Data JPA, Jakarta Bean Validation, PostgreSQL (with automatic embedded H2 fallback for local/offline runs)
+- **Frontend**: Angular 22, TypeScript 6, Bootstrap 5, Bootstrap Icons, Vitest
 
-### 1. Start the Backend
-Navigate to the backend project directory:
+## Repository Structure
+
+- `travel-management-backend/travel-management-backend/` — Spring Boot REST API (`com.corporate.travel`)
+- `travel-management-frontend/` — Angular standalone SPA
+- `.env.example` — Template for backend runtime and database environment variables
+
+## Environment Configuration
+
+1. Copy `.env.example` to `.env` in the repository root:
+   - Windows PowerShell: `Copy-Item .env.example .env`
+   - macOS/Linux: `cp .env.example .env`
+2. Update `.env` values for your database:
+   - `SERVER_PORT` — Backend HTTP port (default `8080`)
+   - `DB_URL` — PostgreSQL JDBC URL (e.g. `jdbc:postgresql://localhost:5432/travel_management_db`)
+   - `DB_USERNAME` — PostgreSQL username
+   - `DB_PASSWORD` — PostgreSQL password
+   - `DB_DDL_AUTO` — Hibernate schema mode (`validate` for production, `update` for local development)
+   - `DB_SHOW_SQL` — Set `false` unless debugging SQL queries
+   - `H2_CONSOLE_ENABLED` — Set `false` in shared/production environments
+   - `CORS_ALLOWED_ORIGINS` — Comma-separated frontend origins allowed by CORS (default `http://localhost:4200`)
+   - `APP_SEED_DEMO_DATA` — Set `true` only when initializing an empty local database with sample users/policies
+   - `APP_DEFAULT_USER_PASSWORD` — Password assigned to seeded accounts when `APP_SEED_DEMO_DATA=true`
+
+## Running Locally
+
+### 1. Backend
+
 ```powershell
-cd "travel-management-backend\travel-management-backend"
+cd travel-management-backend\travel-management-backend
+.\mvnw.cmd test
+.\mvnw.cmd spring-boot:run
 ```
 
-**Running with Zero-Configuration Database (Self-Healing Dual-Mode)**
-```powershell
-mvn spring-boot:run
-```
-> **Self-Healing Connectivity**: The system automatically tests connectivity to your local PostgreSQL database (`jdbc:postgresql://localhost:5432/travel_management_db`).
-> - If PostgreSQL is running and available, it connects directly to PostgreSQL.
-> - If PostgreSQL is not currently running or the database is not yet created, it automatically and gracefully switches to embedded in-memory H2 with full schema generation and comprehensive seed data (Departments, Users, Travel Policies, Sample Trips with Itinerary Segments & Expenses).
-> 
-> You can also force explicit H2 mode at any time:
-> ```powershell
-> mvn spring-boot:run "-Dspring-boot.run.profiles=h2"
-> ```
+If PostgreSQL at `DB_URL` is unreachable, `DatabaseConfig` logs a warning and falls back to an embedded in-memory H2 database so the API remains runnable.
 
----
+### 2. Frontend
 
-### 2. Start the Frontend
-In a new terminal, navigate to the frontend directory:
 ```powershell
 cd travel-management-frontend
+npm install
+npx ng test --watch=false
 npm start
 ```
-Open your browser at: **`http://localhost:4200/`**
 
-To run the unit test suite (120 tests across 12 suites):
-```powershell
-npm test
-```
+Open `http://localhost:4200`. Update `travel-management-frontend/src/environments/environment.ts` if the backend runs on a non-default host or port.
 
-To create a clean production build:
-```powershell
-npm run build
-```
+## Core Workflows
 
----
-
-## 🧭 Core Workflow & Feature Matrix
-
-### 1. Travel Request Creation (Draft & Submit)
-- **Inputs**: Destination, Travel Dates (Start/End validation), Purpose of Work, Estimated Budget, Travel Class (Economy, Premium Economy, Business, First Class).
-- **Draft Capability**: Save incomplete requests as Drafts and edit or load them into the form at any time.
-- **Role Isolation**: Employees only view their own requests; Managers and Finance officers have dedicated views.
-
-### 2. Multi-Level Approval State Machine
-- **Hierarchy Auto-Routing**:
-  - Employee submits request $\rightarrow$ Status: `PENDING_MANAGER`
-  - Assigned Manager approves $\rightarrow$ Status: `PENDING_FINANCE`
-  - Assigned Finance Officer approves $\rightarrow$ Status: `APPROVED`
-  - Rejection at any stage records mandatory reviewer feedback and moves status to `REJECTED`.
-- **Complete Audit Trail**: Every status transition records timestamp, reviewer name, role, previous status, and comments.
-
-### 3. Policy Enforcement
-- Automatically validates requests against department policies:
-  - Engineering limit: **$2,000.00** | Allowed Class: **Economy**
-  - Sales limit: **$5,000.00** | Allowed Class: **Business**
-- Violations are visibly flagged on cards and reports with specific reasons.
-
-### 4. Itinerary Management Connected to Purpose of Work
-- **Manual Segment Entry**: Flights, Hotels/Stays, Trains, Cabs, Buses with departure/arrival datetimes and locations.
-- **Purpose of Work Connection**: Each itinerary segment links directly to the business objective/work goal (e.g. client workshops, technical sessions, deployment).
-- **Timeline & Schedule Visualization**: Comprehensive itinerary listing showing schedule, transport provider, and purpose of work.
-
-### 5. Expense Management & Simulated Storage Proof
-- **Expense Entries**: Category (Food, Stay, Transport, Other), Amount ($), and Purpose of Work / Payment Reason.
-- **PDF Upload Proof**: Upload bill receipts, tax invoices, and transaction slips (simulated storage with in-app preview).
-- **Reimbursement Workflow**:
-  - Only approved trips can file claims.
-  - Traveler submits claims for payout.
-  - Assigned Finance Officer audits proof and executes `APPROVE` or `REIMBURSE`.
-
-### 6. Analytics & Real-Time Reporting
-- **Company Spend**: Total estimated budget vs. total actual reimbursed spend.
-- **Department-Wise Spend**: Aggregated breakdown across Engineering, Sales, and Finance.
-- **Employee Travel History**: Track complete trip journeys and cumulative expenditure.
+- **Travel Requests & Policy Checks**: Employees submit requests or save drafts with start/end date validation, optional Priority flag, and automated budget limit checks per travel class (`ECONOMY`, `PREMIUM_ECONOMY`, `BUSINESS`).
+- **Two-Stage Approval Pipeline**: Assigned Manager reviews `PENDING_MANAGER` requests (`PENDING_FINANCE` or `REJECTED`), then Assigned Finance reviews `PENDING_FINANCE` requests (`APPROVED` or `REJECTED`). Approvals are blocked once a trip's starting date is reached or crossed.
+- **Itinerary & Expense Reimbursement**: Travelers add itinerary segments after Manager approval and upload PDF expense claims after Finance approval; Finance approves and marks claims reimbursed.
+- **Directory, Analytics & Notifications**: Persistent notifications track submissions, approvals, and rejections across stakeholders. Finance and Admin users access directory/bank account details and spend summaries.

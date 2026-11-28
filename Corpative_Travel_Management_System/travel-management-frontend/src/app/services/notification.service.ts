@@ -2,12 +2,13 @@ import { Injectable, Optional } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 import { AppNotification, NotificationType } from '../models/notification.model';
 import { CurrentUser } from './user-context.service';
 import { TravelRequestResponseDto } from '../models/travel-request.model';
 
 const STORAGE_KEY = 'tms_corporate_notifications_v1';
-const API_URL = 'http://localhost:8080/api/notifications';
+const API_URL = `${environment.apiBaseUrl}/notifications`;
 
 const DEFAULT_NOTIFICATIONS: AppNotification[] = [
   {

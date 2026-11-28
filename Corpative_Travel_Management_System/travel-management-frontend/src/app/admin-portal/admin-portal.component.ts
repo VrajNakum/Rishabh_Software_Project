@@ -477,9 +477,7 @@ export class AdminPortalComponent implements OnInit {
     // 2. Sync in background
     this.userContext.updateUserAssignments(targetUserId, normMgrId, normFinId).subscribe({
       next: () => {},
-      error: (err) => {
-        console.error('Failed to update assignments in backend:', err);
-      }
+      error: () => {}
     });
   }
 
@@ -539,9 +537,7 @@ export class AdminPortalComponent implements OnInit {
 
     this.userContext.updateUserRole(targetUserId, newRole).subscribe({
       next: () => {},
-      error: (err) => {
-        console.error('Failed to update user role in backend:', err);
-      }
+      error: () => {}
     });
   }
 
@@ -559,12 +555,9 @@ export class AdminPortalComponent implements OnInit {
     // Immediately emit update event so UI updates instantly without any loading
     this.userAssignmentsUpdated.emit(updatedUser);
 
-    // Sync to backend in background
     this.userContext.updateUserAssignments(user.id, newManagerId, user.financeId ?? null).subscribe({
       next: () => {},
-      error: (err) => {
-        console.error('Failed to update manager assignment in backend:', err);
-      }
+      error: () => {}
     });
   }
 
@@ -579,15 +572,11 @@ export class AdminPortalComponent implements OnInit {
     user.financeId = updatedUser.financeId;
     user.financeName = updatedUser.financeName;
 
-    // Immediately emit update event so UI updates instantly without any loading
     this.userAssignmentsUpdated.emit(updatedUser);
 
-    // Sync to backend in background
     this.userContext.updateUserAssignments(user.id, user.managerId ?? null, newFinanceId).subscribe({
       next: () => {},
-      error: (err) => {
-        console.error('Failed to update finance assignment in backend:', err);
-      }
+      error: () => {}
     });
   }
 
